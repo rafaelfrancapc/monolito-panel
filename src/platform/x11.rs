@@ -16,7 +16,7 @@ x11rb::atom_manager! {
     Atoms: AtomsCookie {
         _NET_WM_WINDOW_TYPE, _NET_WM_WINDOW_TYPE_DOCK,
         _NET_WM_WINDOW_TYPE_DESKTOP, _NET_WM_STRUT, _NET_WM_STRUT_PARTIAL,
-        _NET_CLIENT_LIST, _NET_ACTIVE_WINDOW, _NET_WM_NAME, UTF8_STRING,
+        _NET_CLIENT_LIST, _NET_ACTIVE_WINDOW, _NET_CLOSE_WINDOW, _NET_WM_NAME, UTF8_STRING,
         _NET_WM_STATE, _NET_WM_STATE_SKIP_TASKBAR, _NET_WM_STATE_STICKY,
         _NET_WM_DESKTOP, _NET_CURRENT_DESKTOP, _NET_WM_STATE_ABOVE,
         WM_CLASS, WM_NAME, WM_CHANGE_STATE,
@@ -238,6 +238,13 @@ impl Worker {
             }
             DesktopCommand::Minimize(window) => {
                 self.send_message(window, self.atoms.WM_CHANGE_STATE, [3, 0, 0, 0, 0])?
+            }
+            DesktopCommand::Close(window) => {
+                self.send_message(
+                    window,
+                    self.atoms._NET_CLOSE_WINDOW,
+                    [x11rb::CURRENT_TIME, 2, 0, 0, 0],
+                )?;
             }
             DesktopCommand::Stop => {}
         }

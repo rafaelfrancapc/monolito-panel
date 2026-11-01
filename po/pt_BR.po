@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: monolito-panel 0.1\n"
 "Language: pt_BR\n"
-"PO-Revision-Date: 2026-10-31 00:00-0300\n"
+"PO-Revision-Date: 2026-11-01 18:30-0300\n"
 "Last-Translator: Monolito contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
 "MIME-Version: 1.0\n"
@@ -24,8 +24,23 @@ msgstr "Calendário e notificações"
 msgid "Search installed applications"
 msgstr "Pesquisar aplicativos instalados"
 
+msgid "Type here to search"
+msgstr "Digite aqui para pesquisar"
+
+msgid "Search installed applications and files"
+msgstr "Pesquisar aplicativos e arquivos instalados"
+
 msgid "Pinned"
 msgstr "Fixados"
+
+msgid "Recommended"
+msgstr "Recomendados"
+
+msgid "Recent"
+msgstr "Recente"
+
+msgid "No recent files."
+msgstr "Nenhum arquivo recente."
 
 msgid "All apps"
 msgstr "Todos os aplicativos"
@@ -35,6 +50,21 @@ msgstr "Fixar"
 
 msgid "Unpin"
 msgstr "Desafixar"
+
+msgid "Power"
+msgstr "Energia"
+
+msgid "Sleep"
+msgstr "Suspender"
+
+msgid "Restart"
+msgstr "Reiniciar"
+
+msgid "Shut down"
+msgstr "Desligar"
+
+msgid "Lock screen"
+msgstr "Bloquear tela"
 
 msgid "No pinned applications. Choose All apps to pin one."
 msgstr "Nenhum aplicativo fixado. Use Todos os aplicativos para fixar."
@@ -48,6 +78,12 @@ msgstr "Calendário"
 msgid "Notifications"
 msgstr "Notificações"
 
+msgid "Clear all"
+msgstr "Limpar tudo"
+
+msgid "No new notifications"
+msgstr "Nenhuma notificação nova"
+
 msgid "Notification history is not available. XFCE's notification service remains in control."
 msgstr "Histórico de notificações indisponível. O serviço do XFCE continua responsável pelas notificações."
 
@@ -57,14 +93,29 @@ msgstr "Operação indisponível"
 msgid "Monolito Settings is not installed (org.monolito.Settings.desktop)."
 msgstr "Monolito Settings não está instalado (org.monolito.Settings.desktop)."
 
-msgid "Session actions are planned; use the XFCE session menu."
-msgstr "Ações de sessão pendentes; use o menu de sessão do XFCE."
+msgid "Checking…"
+msgstr "Verificando…"
 
-msgid "Checking system services…"
-msgstr "Consultando serviços do sistema…"
+msgid "On"
+msgstr "Ligado"
 
-msgid "Bluetooth controls are planned."
-msgstr "Controles de Bluetooth pendentes."
+msgid "Off"
+msgstr "Desligado"
+
+msgid "Connected"
+msgstr "Conectado"
+
+msgid "Paired"
+msgstr "Pareado"
+
+msgid "Unavailable"
+msgstr "Indisponível"
+
+msgid "Airplane mode"
+msgstr "Modo avião"
+
+msgid "Battery saver"
+msgstr "Economizador de bateria"
 
 msgid "Toggle mute"
 msgstr "Ativar ou desativar mudo"
@@ -72,14 +123,20 @@ msgstr "Ativar ou desativar mudo"
 msgid "Output volume"
 msgstr "Volume de saída"
 
+msgid "Audio output"
+msgstr "Saída de áudio"
+
+msgid "Select audio output device"
+msgstr "Selecionar dispositivo de saída de áudio"
+
+msgid "Toggle microphone mute"
+msgstr "Ativar ou desativar mudo do microfone"
+
+msgid "Input volume"
+msgstr "Volume de entrada"
+
 msgid "Checking audio…"
 msgstr "Consultando áudio…"
-
-msgid "Brightness: no backend in this milestone."
-msgstr "Brilho: sem backend neste marco."
-
-msgid "Experimental system integration"
-msgstr "Integração experimental com o sistema"
 
 msgid "Audio unavailable (WirePlumber/wpctl)."
 msgstr "Áudio indisponível (WirePlumber/wpctl)."
@@ -99,11 +156,11 @@ msgstr "Rede: indisponível ou em transição"
 msgid "NetworkManager is unavailable."
 msgstr "NetworkManager indisponível."
 
-msgid "BlueZ detected · controls are planned."
-msgstr "BlueZ detectado · controles pendentes."
-
-msgid "Bluetooth unavailable · controls are planned."
-msgstr "Bluetooth indisponível · controles pendentes."
-
 msgid "Battery"
 msgstr "Bateria"
+
+msgid "Charging"
+msgstr "Carregando"
+
+msgid "remaining"
+msgstr "restantes"

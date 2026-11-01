@@ -50,6 +50,7 @@ pub enum DesktopCommand {
     Reposition,
     Activate(u32),
     Minimize(u32),
+    Close(u32),
     Stop,
 }
 pub trait DesktopShellBackend {

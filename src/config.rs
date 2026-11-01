@@ -2,6 +2,14 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskbarAlignment {
+    Left,
+    #[default]
+    Center,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Config {
@@ -10,7 +18,9 @@ pub struct Config {
     /// Index in RandR's monitor list; None selects the primary monitor.
     pub monitor: Option<usize>,
     pub pinned: Vec<String>,
+    pub alignment: TaskbarAlignment,
 }
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -18,13 +28,16 @@ impl Default for Config {
             height: 48,
             monitor: None,
             pinned: vec![],
+            alignment: TaskbarAlignment::Center,
         }
     }
 }
+
 impl Config {
     pub fn path() -> PathBuf {
         monolito_ui::config_dir().join("panel.toml")
     }
+
     pub fn load() -> Result<Self> {
         match std::fs::read_to_string(Self::path()) {
             Ok(text) => Self::parse(&text),
@@ -32,6 +45,7 @@ impl Config {
             Err(e) => Err(e.into()),
         }
     }
+
     pub fn parse(text: &str) -> Result<Self> {
         let value: Self = toml::from_str(text)?;
         if value.version != 1 {
@@ -42,9 +56,11 @@ impl Config {
         }
         Ok(value)
     }
+
     pub fn save(&self) -> Result<()> {
         self.save_to(&Self::path())
     }
+
     pub fn save_to(&self, path: &Path) -> Result<()> {
         let parent = path
             .parent()
@@ -61,6 +77,7 @@ impl Config {
         std::fs::rename(&temp, path)?;
         Ok(())
     }
+
     pub fn toggle_pin(&mut self, id: &str) {
         if self.pinned.iter().any(|p| p == id) {
             self.pinned.retain(|p| p != id);
@@ -69,15 +86,26 @@ impl Config {
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn rejects_invalid_height_and_future_schema() {
         assert!(Config::parse("height = 12").is_err());
         assert!(Config::parse("version = 99").is_err());
         assert!(Config::parse("height = 64").is_ok());
     }
+
+    #[test]
+    fn parses_alignment_option() {
+        let conf = Config::parse("alignment = 'left'").unwrap();
+        assert_eq!(conf.alignment, TaskbarAlignment::Left);
+        let conf_center = Config::parse("alignment = 'center'").unwrap();
+        assert_eq!(conf_center.alignment, TaskbarAlignment::Center);
+    }
+
     #[test]
     fn pins_roundtrip_in_order() {
         let mut config = Config::default();

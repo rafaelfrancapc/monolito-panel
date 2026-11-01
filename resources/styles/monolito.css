@@ -1,63 +1,424 @@
-/* Monolito visual tokens: radius 8/16/20; spacing 4/8/12/16/24/32. */
-@define-color monolito_accent #49b9ed;
+/* Monolito Panel - Windows 11 Minimalist Aesthetic */
+@define-color monolito_accent #0078d4;
+
+/* Base Panel */
 .monolito-panel {
-  font-family: Inter, "Noto Sans", sans-serif;
+  font-family: "Segoe UI Variable", "Segoe UI", Inter, -apple-system, system-ui, "Noto Sans", sans-serif;
   font-size: 13px;
-  box-shadow: inset 0 1px alpha(white, 0.10);
+  font-weight: 400;
 }
-.monolito-panel.dark { background: #17232d; color: #f1f5fa; }
-.monolito-panel.light { background: #e8eff6; color: #182633; }
-.monolito-panel > box { padding: 0 8px; }
-.monolito-panel button, .monolito-panel menubutton > button {
+
+.monolito-panel.dark {
+  background: rgba(28, 28, 28, 0.90);
+  color: #f3f3f3;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.monolito-panel.light {
+  background: rgba(243, 243, 243, 0.90);
+  color: #1a1a1a;
+  box-shadow: inset 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.monolito-panel > box {
+  padding: 0 10px;
+}
+
+/* Panel Buttons & Taskbar Items */
+.monolito-panel button,
+.monolito-panel menubutton > button {
   background: transparent;
   background-image: none;
   border: none;
   box-shadow: none;
-  border-radius: 8px;
-  padding: 4px 10px;
-  min-height: 28px;
+  border-radius: 6px;
+  padding: 4px 6px;
+  min-height: 36px;
+  min-width: 40px;
   color: inherit;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
 }
-.monolito-panel button:hover, .monolito-panel menubutton > button:hover {
-  background: alpha(@monolito_accent, 0.15);
+
+.monolito-panel.dark button:hover,
+.monolito-panel.dark menubutton > button:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
-.monolito-panel button:active, .monolito-panel menubutton > button:checked {
-  background: alpha(@monolito_accent, 0.25);
+
+.monolito-panel.light button:hover,
+.monolito-panel.light menubutton > button:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
-.monolito-panel button:focus-visible, .monolito-panel entry:focus-within {
+
+.monolito-panel.dark button:active,
+.monolito-panel.dark menubutton > button:checked {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.monolito-panel.light button:active,
+.monolito-panel.light menubutton > button:checked {
+  background: rgba(0, 0, 0, 0.09);
+}
+
+.monolito-panel button:focus-visible,
+.monolito-panel entry:focus-within {
   outline: 2px solid @monolito_accent;
   outline-offset: -2px;
 }
-.monolito-panel .start-button { color: @monolito_accent; }
-.monolito-panel .start-button image { -gtk-icon-size: 24px; }
-.monolito-panel .task-button { margin: 2px 0; }
-.monolito-panel .task-button > button { padding: 0 10px; }
-.monolito-panel .active-window { background: alpha(@monolito_accent, 0.13); border-radius: 8px; }
-.monolito-panel .window-marker { font-size: 8px; line-height: 0.8; color: @monolito_accent; }
-.monolito-panel .clock-button { font-size: 11px; }
-.monolito-popup > contents {
-  border-radius: 20px;
-  padding: 24px;
-  border: 1px solid alpha(white, 0.13);
-  box-shadow: 0 12px 32px alpha(black, 0.24);
-  background: #202e39;
-  color: #f1f5fa;
-}
-.light .monolito-popup > contents { background: #f5f8fc; color: #182633; border-color: alpha(black, 0.10); }
-.monolito-popup .brand {
-  font-family: "Montserrat Alternates", Inter, sans-serif;
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 3px;
+
+/* Start Button */
+.monolito-panel .start-button {
+  min-width: 40px;
   color: @monolito_accent;
 }
-.monolito-popup .heading { font-size: 15px; font-weight: 600; }
-.monolito-popup .muted { opacity: 0.7; font-size: 12px; }
-.monolito-popup entry { border-radius: 16px; padding: 10px 12px; min-height: 20px; }
-.monolito-popup .app-tile { padding: 12px 4px; border-radius: 8px; }
-.monolito-popup .pin-action { font-size: 10px; padding: 0 4px; min-height: 18px; opacity: 0.7; }
-.monolito-popup .quick-tile { border-radius: 8px; background: alpha(@monolito_accent, 0.17); padding: 16px 12px; }
-.monolito-popup .popup-footer { border-top: 1px solid alpha(@monolito_accent, 0.15); padding-top: 16px; }
-.monolito-popup scale highlight { background: @monolito_accent; }
 
-.uncomposited .monolito-popup > contents { box-shadow: none; }
+/* Running Indicator Bar under Taskbar Items */
+.monolito-panel .task-button {
+  margin: 2px 1px;
+}
+
+.monolito-panel .task-button > button {
+  padding: 2px 8px;
+}
+
+.task-indicator {
+  min-height: 3px;
+  min-width: 0px;
+  margin-top: 1px;
+  border-radius: 2px;
+  transition: min-width 180ms ease, background-color 180ms ease;
+  background: transparent;
+}
+
+.monolito-panel.dark .task-indicator.running {
+  min-width: 6px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.monolito-panel.light .task-indicator.running {
+  min-width: 6px;
+  background: rgba(0, 0, 0, 0.40);
+}
+
+.task-indicator.active {
+  min-width: 16px;
+  background: @monolito_accent;
+}
+
+.task-indicator.multiple {
+  box-shadow: -4px 0 0 -1px alpha(@monolito_accent, 0.4), 4px 0 0 -1px alpha(@monolito_accent, 0.4);
+}
+
+/* Active window highlight */
+.monolito-panel.dark .active-window {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.monolito-panel.light .active-window {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* System Tray Pill Button (Windows 11 Unified Quick Settings) */
+.monolito-panel .status-pill-button > button {
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+/* Clock Button */
+.monolito-panel .clock-button {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.monolito-panel .clock-button > button {
+  padding: 2px 8px;
+}
+
+/* Popovers / Flyouts (Acrylic Windows 11 style) */
+.monolito-popup > contents {
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(36, 36, 36, 0.95);
+  color: #f3f3f3;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+}
+
+.light .monolito-popup > contents {
+  background: rgba(250, 250, 250, 0.95);
+  color: #1a1a1a;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.14);
+}
+
+.monolito-popup .heading {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.monolito-popup .muted {
+  opacity: 0.70;
+  font-size: 12px;
+}
+
+/* Search Entry (Windows 11 style) */
+.monolito-popup entry,
+.start-search-entry {
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-height: 32px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: inherit;
+  box-shadow: none;
+}
+
+.light .monolito-popup entry,
+.light .start-search-entry {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Start Menu App Tiles */
+.app-tile {
+  padding: 8px 4px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.app-tile:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.light .app-tile:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.app-tile-name {
+  font-size: 11px;
+}
+
+.pin-action {
+  font-size: 10px;
+  padding: 1px 4px;
+  min-height: 18px;
+  opacity: 0.65;
+  border-radius: 4px;
+}
+
+.pin-action:hover {
+  opacity: 1.0;
+}
+
+/* Recommended / Recent Section */
+.recommended-section {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.light .recommended-section {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+.recent-item-tile {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+}
+
+.recent-item-tile:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.light .recent-item-tile:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.recent-subtext {
+  font-size: 10px;
+}
+
+/* Start Menu Footer */
+.popup-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.light .popup-footer {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+.menu-item-button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.menu-item-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.light .menu-item-button:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Quick Action Tiles */
+.quick-tile {
+  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  transition: background-color 150ms ease;
+}
+
+.light .quick-tile {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+.quick-tile:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.light .quick-tile:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.quick-tile.active {
+  background: @monolito_accent;
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.quick-tile.active .quick-tile-sub {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.quick-tile-title {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.quick-tile-sub {
+  font-size: 11px;
+  opacity: 0.70;
+}
+
+/* Quick Details Box (Wi-Fi list, Bluetooth list) */
+.quick-details-box {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.light .quick-details-box {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.network-list-item {
+  padding: 6px 10px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.network-list-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.light .network-list-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Sliders (Fluent Scale) */
+.fluent-slider {
+  min-height: 24px;
+}
+
+.fluent-slider trough {
+  min-height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.light .fluent-slider trough {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.fluent-slider highlight {
+  background: @monolito_accent;
+  border-radius: 2px;
+  min-height: 4px;
+}
+
+.fluent-slider slider {
+  min-width: 14px;
+  min-height: 14px;
+  border-radius: 50%;
+  background: @monolito_accent;
+  border: 3px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  margin: -5px;
+}
+
+.light .fluent-slider slider {
+  border-color: #f3f3f3;
+}
+
+/* Subtle icon buttons */
+.icon-button-subtle {
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.icon-button-subtle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.light .icon-button-subtle:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Calendar & Notifications */
+.calendar-date-header {
+  font-size: 15px;
+  font-weight: 600;
+  color: @monolito_accent;
+}
+
+.subtle-link-button {
+  font-size: 11px;
+  opacity: 0.75;
+  padding: 2px 6px;
+}
+
+.notifications-container {
+  padding: 16px 8px;
+  opacity: 0.8;
+}
+
+.fluent-calendar {
+  border-radius: 8px;
+  background: transparent;
+  padding: 4px;
+}
+
+.fluent-calendar:selected {
+  background-color: @monolito_accent;
+  color: #ffffff;
+  border-radius: 50%;
+}
+
+/* Fallback for uncomposited X11 environments */
+.uncomposited .monolito-popup > contents {
+  box-shadow: none;
+  background: #202020;
+}
+
+.uncomposited.light .monolito-popup > contents {
+  background: #f0f0f0;
+}
