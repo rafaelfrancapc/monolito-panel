@@ -1,0 +1,63 @@
+/* Monolito visual tokens: radius 8/16/20; spacing 4/8/12/16/24/32. */
+@define-color monolito_accent #49b9ed;
+.monolito-panel {
+  font-family: Inter, "Noto Sans", sans-serif;
+  font-size: 13px;
+  box-shadow: inset 0 1px alpha(white, 0.10);
+}
+.monolito-panel.dark { background: #17232d; color: #f1f5fa; }
+.monolito-panel.light { background: #e8eff6; color: #182633; }
+.monolito-panel > box { padding: 0 8px; }
+.monolito-panel button, .monolito-panel menubutton > button {
+  background: transparent;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 8px;
+  padding: 4px 10px;
+  min-height: 28px;
+  color: inherit;
+}
+.monolito-panel button:hover, .monolito-panel menubutton > button:hover {
+  background: alpha(@monolito_accent, 0.15);
+}
+.monolito-panel button:active, .monolito-panel menubutton > button:checked {
+  background: alpha(@monolito_accent, 0.25);
+}
+.monolito-panel button:focus-visible, .monolito-panel entry:focus-within {
+  outline: 2px solid @monolito_accent;
+  outline-offset: -2px;
+}
+.monolito-panel .start-button { color: @monolito_accent; }
+.monolito-panel .start-button image { -gtk-icon-size: 24px; }
+.monolito-panel .task-button { margin: 2px 0; }
+.monolito-panel .task-button > button { padding: 0 10px; }
+.monolito-panel .active-window { background: alpha(@monolito_accent, 0.13); border-radius: 8px; }
+.monolito-panel .window-marker { font-size: 8px; line-height: 0.8; color: @monolito_accent; }
+.monolito-panel .clock-button { font-size: 11px; }
+.monolito-popup > contents {
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid alpha(white, 0.13);
+  box-shadow: 0 12px 32px alpha(black, 0.24);
+  background: #202e39;
+  color: #f1f5fa;
+}
+.light .monolito-popup > contents { background: #f5f8fc; color: #182633; border-color: alpha(black, 0.10); }
+.monolito-popup .brand {
+  font-family: "Montserrat Alternates", Inter, sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 3px;
+  color: @monolito_accent;
+}
+.monolito-popup .heading { font-size: 15px; font-weight: 600; }
+.monolito-popup .muted { opacity: 0.7; font-size: 12px; }
+.monolito-popup entry { border-radius: 16px; padding: 10px 12px; min-height: 20px; }
+.monolito-popup .app-tile { padding: 12px 4px; border-radius: 8px; }
+.monolito-popup .pin-action { font-size: 10px; padding: 0 4px; min-height: 18px; opacity: 0.7; }
+.monolito-popup .quick-tile { border-radius: 8px; background: alpha(@monolito_accent, 0.17); padding: 16px 12px; }
+.monolito-popup .popup-footer { border-top: 1px solid alpha(@monolito_accent, 0.15); padding-top: 16px; }
+.monolito-popup scale highlight { background: @monolito_accent; }
+
+.uncomposited .monolito-popup > contents { box-shadow: none; }

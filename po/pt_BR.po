@@ -1,0 +1,109 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: monolito-panel 0.1\n"
+"Language: pt_BR\n"
+"PO-Revision-Date: 2026-10-31 00:00-0300\n"
+"Last-Translator: Monolito contributors\n"
+"Language-Team: Portuguese (Brazil)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Start"
+msgstr "Iniciar"
+
+msgid "System"
+msgstr "Sistema"
+
+msgid "Quick settings"
+msgstr "Configurações rápidas"
+
+msgid "Calendar and notifications"
+msgstr "Calendário e notificações"
+
+msgid "Search installed applications"
+msgstr "Pesquisar aplicativos instalados"
+
+msgid "Pinned"
+msgstr "Fixados"
+
+msgid "All apps"
+msgstr "Todos os aplicativos"
+
+msgid "Pin"
+msgstr "Fixar"
+
+msgid "Unpin"
+msgstr "Desafixar"
+
+msgid "No pinned applications. Choose All apps to pin one."
+msgstr "Nenhum aplicativo fixado. Use Todos os aplicativos para fixar."
+
+msgid "No applications found."
+msgstr "Nenhum aplicativo encontrado."
+
+msgid "Calendar"
+msgstr "Calendário"
+
+msgid "Notifications"
+msgstr "Notificações"
+
+msgid "Notification history is not available. XFCE's notification service remains in control."
+msgstr "Histórico de notificações indisponível. O serviço do XFCE continua responsável pelas notificações."
+
+msgid "Operation unavailable"
+msgstr "Operação indisponível"
+
+msgid "Monolito Settings is not installed (org.monolito.Settings.desktop)."
+msgstr "Monolito Settings não está instalado (org.monolito.Settings.desktop)."
+
+msgid "Session actions are planned; use the XFCE session menu."
+msgstr "Ações de sessão pendentes; use o menu de sessão do XFCE."
+
+msgid "Checking system services…"
+msgstr "Consultando serviços do sistema…"
+
+msgid "Bluetooth controls are planned."
+msgstr "Controles de Bluetooth pendentes."
+
+msgid "Toggle mute"
+msgstr "Ativar ou desativar mudo"
+
+msgid "Output volume"
+msgstr "Volume de saída"
+
+msgid "Checking audio…"
+msgstr "Consultando áudio…"
+
+msgid "Brightness: no backend in this milestone."
+msgstr "Brilho: sem backend neste marco."
+
+msgid "Experimental system integration"
+msgstr "Integração experimental com o sistema"
+
+msgid "Audio unavailable (WirePlumber/wpctl)."
+msgstr "Áudio indisponível (WirePlumber/wpctl)."
+
+msgid "Network: connected"
+msgstr "Rede: conectada"
+
+msgid "Network: limited connectivity"
+msgstr "Rede: conectividade limitada"
+
+msgid "Network: disconnected"
+msgstr "Rede: desconectada"
+
+msgid "Network: unavailable or transitioning"
+msgstr "Rede: indisponível ou em transição"
+
+msgid "NetworkManager is unavailable."
+msgstr "NetworkManager indisponível."
+
+msgid "BlueZ detected · controls are planned."
+msgstr "BlueZ detectado · controles pendentes."
+
+msgid "Bluetooth unavailable · controls are planned."
+msgstr "Bluetooth indisponível · controles pendentes."
+
+msgid "Battery"
+msgstr "Bateria"

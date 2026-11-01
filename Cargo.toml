@@ -1,0 +1,24 @@
+[workspace]
+members = ["crates/monolito-ui"]
+resolver = "2"
+
+[package]
+name = "monolito-panel"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "An independent GTK4 desktop panel for XFCE on X11"
+
+[dependencies]
+anyhow = "1"
+gtk = { package = "gtk4", version = "0.9", features = ["v4_12"] }
+gdk4-x11 = { version = "0.9", features = ["v4_4"] }
+x11rb = { version = "0.13", features = ["randr"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+monolito-ui = { path = "crates/monolito-ui" }
+gettext-rs = { version = "0.7", features = ["gettext-system"] }
+
+[profile.dev]
+debug = 1
