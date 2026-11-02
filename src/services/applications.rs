@@ -1,4 +1,5 @@
 use gtk::{gio, glib, prelude::*};
+use std::{io::Write, os::unix::fs::PermissionsExt};
 
 #[derive(Clone, Debug)]
 pub struct Application {
@@ -73,6 +74,39 @@ pub fn launch(id: &str, parent: &gtk::Window) {
             super::system::show_error(&parent, &error.to_string());
         }
     });
+}
+
+pub fn create_desktop_shortcut(id: &str) -> Result<(), String> {
+    let app = gio::DesktopAppInfo::new(id).ok_or("Application is no longer installed")?;
+    let source = app.filename().ok_or("Application has no desktop file")?;
+    let desktop = glib::user_special_dir(glib::UserDirectory::Desktop)
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join("Desktop")))
+        .ok_or("Desktop directory is unavailable")?;
+    if !desktop.is_dir() {
+        return Err(format!(
+            "Desktop directory does not exist: {}",
+            desktop.display()
+        ));
+    }
+    let name = source.file_name().ok_or("Invalid desktop file name")?;
+    let destination = desktop.join(name);
+    let contents = std::fs::read(source).map_err(|e| e.to_string())?;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&destination)
+        .map_err(|e| e.to_string())?;
+    file.write_all(&contents).map_err(|e| e.to_string())?;
+    file.set_permissions(std::fs::Permissions::from_mode(0o755))
+        .map_err(|e| e.to_string())?;
+    let info = gio::FileInfo::new();
+    info.set_attribute_boolean("metadata::trusted", true);
+    let _ = gio::File::for_path(destination).set_attributes_from_info(
+        &info,
+        gio::FileQueryInfoFlags::NONE,
+        gio::Cancellable::NONE,
+    );
+    Ok(())
 }
 
 #[cfg(test)]

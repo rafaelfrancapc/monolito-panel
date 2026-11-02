@@ -18,6 +18,10 @@ pub struct Config {
     /// Index in RandR's monitor list; None selects the primary monitor.
     pub monitor: Option<usize>,
     pub pinned: Vec<String>,
+    pub start_pinned: Vec<String>,
+    pub weather_enabled: bool,
+    /// Empty uses the provider's IP-based location; otherwise accepts a city name.
+    pub weather_location: Option<String>,
     pub alignment: TaskbarAlignment,
 }
 
@@ -28,6 +32,9 @@ impl Default for Config {
             height: 48,
             monitor: None,
             pinned: vec![],
+            start_pinned: vec![],
+            weather_enabled: true,
+            weather_location: None,
             alignment: TaskbarAlignment::Center,
         }
     }
@@ -47,13 +54,14 @@ impl Config {
     }
 
     pub fn parse(text: &str) -> Result<Self> {
-        let value: Self = toml::from_str(text)?;
+        let mut value: Self = toml::from_str(text)?;
         if value.version != 1 {
             bail!("Unsupported panel configuration version {}", value.version);
         }
         if !(32..=96).contains(&value.height) {
             bail!("Panel height must be between 32 and 96");
         }
+        value.start_pinned.retain(|id| !value.pinned.contains(id));
         Ok(value)
     }
 
@@ -82,7 +90,16 @@ impl Config {
         if self.pinned.iter().any(|p| p == id) {
             self.pinned.retain(|p| p != id);
         } else {
+            self.start_pinned.retain(|p| p != id);
             self.pinned.push(id.to_owned());
+        }
+    }
+    pub fn toggle_start_pin(&mut self, id: &str) {
+        if self.start_pinned.iter().any(|p| p == id) {
+            self.start_pinned.retain(|p| p != id);
+        } else {
+            self.pinned.retain(|p| p != id);
+            self.start_pinned.push(id.to_owned());
         }
     }
 }
@@ -111,6 +128,12 @@ mod tests {
         let mut config = Config::default();
         config.toggle_pin("org.xfce.Thunar.desktop");
         config.toggle_pin("firefox.desktop");
+        config.toggle_start_pin("terminal.desktop");
+        assert!(!config.pinned.contains(&"terminal.desktop".into()));
+        config.toggle_start_pin("firefox.desktop");
+        assert!(!config.pinned.contains(&"firefox.desktop".into()));
+        config.toggle_pin("firefox.desktop");
+        assert!(!config.start_pinned.contains(&"firefox.desktop".into()));
         let path =
             std::env::temp_dir().join(format!("monolito-config-test-{}.toml", std::process::id()));
         config.save_to(&path).unwrap();

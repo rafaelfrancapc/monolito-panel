@@ -1,6 +1,47 @@
 //! UPower battery monitoring and display brightness controls.
 use super::system;
 use gtk::prelude::*;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static SOFTWARE_BRIGHTNESS: AtomicBool = AtomicBool::new(false);
+
+fn backlight_device() -> Option<(PathBuf, u32, u32)> {
+    let entries = std::fs::read_dir("/sys/class/backlight").ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let max = std::fs::read_to_string(path.join("max_brightness"))
+            .ok()
+            .and_then(|s| s.trim().parse::<u32>().ok());
+        let current = std::fs::read_to_string(path.join("brightness"))
+            .ok()
+            .and_then(|s| s.trim().parse::<u32>().ok());
+        if let (Some(max), Some(current)) = (max, current) {
+            if max > 0 {
+                return Some((path, current, max));
+            }
+        }
+    }
+    None
+}
+
+fn active_output(query: &str) -> Option<&str> {
+    query
+        .lines()
+        .find(|line| line.contains(" connected primary "))
+        .or_else(|| query.lines().find(|line| line.contains(" connected ")))
+        .and_then(|line| line.split_whitespace().next())
+}
+
+fn output_brightness(verbose: &str, output: &str) -> Option<u32> {
+    let header = format!("{output} connected");
+    let section = verbose.split(&header).nth(1)?;
+    let line = section
+        .lines()
+        .find(|line| line.trim().starts_with("Brightness:"))?;
+    let value: f64 = line.split(':').nth(1)?.trim().parse().ok()?;
+    Some((value * 100.0).round().clamp(0.0, 100.0) as u32)
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BatteryState {
@@ -120,6 +161,20 @@ pub fn format_duration(seconds: i64) -> String {
 }
 
 pub async fn get_brightness() -> Result<BrightnessInfo, String> {
+    if SOFTWARE_BRIGHTNESS.load(Ordering::Relaxed) {
+        if let Ok(query) = system::command(&["xrandr", "--query"]).await {
+            if let Some(output) = active_output(&query) {
+                if let Ok(verbose) = system::command(&["xrandr", "--verbose"]).await {
+                    if let Some(percentage) = output_brightness(&verbose, output) {
+                        return Ok(BrightnessInfo {
+                            supported: true,
+                            percentage,
+                        });
+                    }
+                }
+            }
+        }
+    }
     // Try brightnessctl first
     if let (Ok(curr_out), Ok(max_out)) = (
         system::command(&["brightnessctl", "get"]).await,
@@ -149,6 +204,34 @@ pub async fn get_brightness() -> Result<BrightnessInfo, String> {
         }
     }
 
+    if let Some((path, current, max)) = backlight_device() {
+        if std::fs::OpenOptions::new()
+            .write(true)
+            .open(path.join("brightness"))
+            .is_ok()
+        {
+            return Ok(BrightnessInfo {
+                supported: true,
+                percentage: ((current as f64 / max as f64) * 100.0).round() as u32,
+            });
+        }
+    }
+
+    // XRandR gamma dimming works on external displays without backlight devices.
+    if let Ok(query) = system::command(&["xrandr", "--query"]).await {
+        if let Some(output) = active_output(&query) {
+            let percentage = if let Ok(verbose) = system::command(&["xrandr", "--verbose"]).await {
+                output_brightness(&verbose, output).unwrap_or(100)
+            } else {
+                100
+            };
+            return Ok(BrightnessInfo {
+                supported: true,
+                percentage,
+            });
+        }
+    }
+
     Ok(BrightnessInfo {
         supported: false,
         percentage: 100,
@@ -168,6 +251,20 @@ pub async fn set_brightness(percentage: u32) -> Result<(), String> {
         .is_ok()
     {
         return Ok(());
+    }
+    if let Some((path, _, max)) = backlight_device() {
+        let raw = ((clamped as f64 / 100.0) * max as f64).round() as u32;
+        if std::fs::write(path.join("brightness"), raw.to_string()).is_ok() {
+            return Ok(());
+        }
+    }
+    if let Ok(query) = system::command(&["xrandr", "--query"]).await {
+        if let Some(output) = active_output(&query) {
+            let factor = format!("{:.2}", (clamped as f64 / 100.0).max(0.01));
+            system::command(&["xrandr", "--output", output, "--brightness", &factor]).await?;
+            SOFTWARE_BRIGHTNESS.store(true, Ordering::Relaxed);
+            return Ok(());
+        }
     }
     Err("No supported brightness controller found".into())
 }
@@ -212,5 +309,19 @@ mod tests {
         assert_eq!(format_duration(3660), "1h 01m");
         assert_eq!(format_duration(7200), "2h 00m");
         assert_eq!(format_duration(1800), "30m");
+    }
+    #[test]
+    fn chooses_primary_xrandr_output() {
+        assert_eq!(
+            active_output("HDMI-1 connected 1920x1080\neDP-1 connected primary 1920x1080"),
+            Some("eDP-1")
+        );
+        assert_eq!(
+            output_brightness(
+                "eDP-1 connected primary 1920x1080\n Brightness: 0.72\n",
+                "eDP-1"
+            ),
+            Some(72)
+        );
     }
 }

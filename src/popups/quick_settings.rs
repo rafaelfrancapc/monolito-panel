@@ -17,9 +17,11 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
         .build();
     let (wifi_tile, wifi_btn, wifi_icon, wifi_sub, wifi_more) =
         radio_tile("Wi-Fi", "network-wireless-symbolic");
+    wifi_tile.add_css_class("expandable-tile");
     wifi_more.set_tooltip_text(Some(&gettextrs::gettext("Show available networks")));
     let (bt_tile, bt_btn, _, bt_sub, bt_more) =
         radio_tile("Bluetooth", "bluetooth-active-symbolic");
+    bt_tile.add_css_class("expandable-tile");
     bt_more.set_tooltip_text(Some(&gettextrs::gettext("Show Bluetooth devices")));
     let (airplane_tile, airplane_btn, _, airplane_sub, airplane_more) =
         radio_tile("Airplane mode", "airplane-mode-symbolic");
@@ -900,6 +902,7 @@ fn radio_tile(
 ) -> (gtk::Box, gtk::Button, gtk::Image, gtk::Label, gtk::Button) {
     let tile = gtk::Box::new(gtk::Orientation::Vertical, 6);
     let controls = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    controls.add_css_class("quick-tile-controls");
     let button = gtk::Button::new();
     button.add_css_class("quick-tile");
     button.set_hexpand(true);

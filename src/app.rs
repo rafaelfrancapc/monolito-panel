@@ -10,6 +10,12 @@ use crate::{
 use gtk::{gdk, glib, prelude::*};
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc, sync::mpsc, time::Duration};
 
+type RedrawLink = Rc<RefCell<Option<std::rc::Weak<dyn Fn()>>>>;
+struct TaskbarActions {
+    config: Rc<RefCell<Config>>,
+    redraw: RedrawLink,
+}
+
 pub fn activate(application: &gtk::Application) {
     let config = match Config::load() {
         Ok(c) => c,
@@ -112,6 +118,25 @@ pub fn activate(application: &gtk::Application) {
     let start_icon = gtk::Image::from_icon_name("start-symbolic");
     start_icon.set_pixel_size(24);
     start.set_child(Some(&start_icon));
+    let search_button = gtk::Button::from_icon_name("system-search-symbolic");
+    search_button.add_css_class("search-button");
+    search_button.set_tooltip_text(Some(&gettextrs::gettext("Search applications")));
+    let (search_parent, search_start) = (window.clone(), start.clone());
+    search_button.connect_clicked(move |_| {
+        let desktop = std::env::var("XDG_CURRENT_DESKTOP")
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        if desktop.contains("xfce") {
+            let parent = search_parent.clone();
+            glib::MainContext::default().spawn_local(async move {
+                if let Err(error) = system::command(&["xfce4-appfinder", "--collapsed"]).await {
+                    system::show_error(parent.upcast_ref(), &error);
+                }
+            });
+        } else if let Some(popover) = search_start.popover() {
+            popover.popup();
+        }
+    });
 
     // Taskbar container
     let taskbar = gtk::Box::new(gtk::Orientation::Horizontal, 4);
@@ -126,6 +151,7 @@ pub fn activate(application: &gtk::Application) {
     });
 
     center_box.append(&start);
+    center_box.append(&search_button);
     center_box.add_css_class("taskbar-group");
     taskbar.add_css_class("taskbar-items");
 
@@ -137,10 +163,17 @@ pub fn activate(application: &gtk::Application) {
         .child(&taskbar)
         .build();
     center_box.append(&tasks_scroll);
+    let left_box = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+    left_box.set_valign(gtk::Align::Center);
+    if config.weather_enabled {
+        left_box.append(&weather_button(&config, window.upcast_ref()));
+    }
+    row.set_start_widget(Some(&left_box));
     if taskbar_alignment == TaskbarAlignment::Center {
         row.set_center_widget(Some(&center_box));
     } else {
-        row.set_start_widget(Some(&center_box));
+        center_box.set_hexpand(false);
+        left_box.append(&center_box);
     }
 
     // Right tray area (Windows 11 Unified Quick Settings + Clock)
@@ -148,6 +181,10 @@ pub fn activate(application: &gtk::Application) {
     tray_box.add_css_class("panel-tray");
     tray_box.set_halign(gtk::Align::End);
     tray_box.set_valign(gtk::Align::Center);
+    let notification_tray = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+    notification_tray.add_css_class("notification-tray");
+    crate::services::tray::install(&notification_tray);
+    tray_box.append(&notification_tray);
 
     let quick = gtk::MenuButton::builder()
         .tooltip_text(gettextrs::gettext("Quick settings"))
@@ -241,30 +278,45 @@ pub fn activate(application: &gtk::Application) {
     let config = Rc::new(RefCell::new(config));
     let apps: Rc<RefCell<Vec<Application>>> = Rc::new(RefCell::new(vec![]));
     let windows: Rc<RefCell<Vec<WindowInfo>>> = Rc::new(RefCell::new(vec![]));
+    let redraw_link: RedrawLink = Rc::new(RefCell::new(None));
     let redraw: Rc<dyn Fn()> = {
-        let (taskbar, config, apps, windows, desktop, parent) = (
+        let (taskbar, config, apps, windows, desktop, parent, redraw_link) = (
             taskbar.clone(),
             config.clone(),
             apps.clone(),
             windows.clone(),
             desktop.clone(),
             window.clone(),
+            redraw_link.clone(),
         );
         let view = RefCell::new(TaskbarView::default());
+        let actions = TaskbarActions {
+            config,
+            redraw: redraw_link,
+        };
         Rc::new(move || {
             render_taskbar(
                 &taskbar,
                 &apps.borrow(),
                 &windows,
-                &config.borrow(),
                 &desktop,
                 parent.upcast_ref(),
                 &mut view.borrow_mut(),
+                &actions,
             )
         })
     };
+    *redraw_link.borrow_mut() = Some(Rc::downgrade(&redraw));
 
     let (apps_tx, apps_rx) = mpsc::channel();
+    let monitor_tx = apps_tx.clone();
+    let app_monitor = gtk::gio::AppInfoMonitor::get();
+    app_monitor.connect_changed(move |_| {
+        let tx = monitor_tx.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(applications::installed());
+        });
+    });
     std::thread::spawn(move || {
         let _ = apps_tx.send(applications::installed());
     });
@@ -280,6 +332,7 @@ pub fn activate(application: &gtk::Application) {
 
     let weak_window = window.downgrade();
     glib::timeout_add_local(Duration::from_millis(40), move || {
+        let _keep_app_monitor_alive = &app_monitor;
         let Some(window) = weak_window.upgrade() else {
             let _ = desktop.send(DesktopCommand::Stop);
             return glib::ControlFlow::Break;
@@ -343,6 +396,15 @@ pub fn activate(application: &gtk::Application) {
                         redraw();
                     }
                 }
+                DesktopEvent::ToggleStart => {
+                    if let Some(popover) = start.popover() {
+                        if popover.is_visible() {
+                            popover.popdown();
+                        } else {
+                            popover.popup();
+                        }
+                    }
+                }
                 DesktopEvent::Error(message) => {
                     eprintln!("{message}");
                     if window.is_visible() {
@@ -358,6 +420,83 @@ pub fn activate(application: &gtk::Application) {
     });
 }
 
+fn weather_button(config: &Config, parent: &gtk::Window) -> gtk::Button {
+    let button = gtk::Button::new();
+    button.add_css_class("weather-button");
+    button.set_tooltip_text(Some(&gettextrs::gettext("Updating weather…")));
+    let content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    let icon = gtk::Image::from_icon_name("weather-overcast-symbolic");
+    icon.set_pixel_size(20);
+    let temperature = gtk::Label::new(Some("—"));
+    temperature.add_css_class("weather-temperature");
+    content.append(&icon);
+    content.append(&temperature);
+    button.set_child(Some(&content));
+
+    let location = config.weather_location.clone();
+    let refresh: Rc<dyn Fn()> = {
+        let (icon, temperature, button, location) = (
+            icon.clone(),
+            temperature.clone(),
+            button.clone(),
+            location.clone(),
+        );
+        Rc::new(move || {
+            let (icon, temperature, button, location) = (
+                icon.clone(),
+                temperature.clone(),
+                button.clone(),
+                location.clone(),
+            );
+            glib::MainContext::default().spawn_local(async move {
+                match crate::services::weather::current(location.as_deref()).await {
+                    Ok(weather) => {
+                        icon.set_icon_name(Some(weather.icon));
+                        temperature.set_text(&weather.temperature);
+                        button.set_tooltip_text(Some(&weather.condition));
+                    }
+                    Err(error) => {
+                        button.set_tooltip_text(Some(&format!(
+                            "{}: {error}",
+                            gettextrs::gettext("Weather unavailable")
+                        )));
+                    }
+                }
+            });
+        })
+    };
+    refresh();
+    let timer_refresh = refresh.clone();
+    glib::timeout_add_seconds_local(30 * 60, move || {
+        timer_refresh();
+        glib::ControlFlow::Continue
+    });
+
+    let hide = gtk::Button::with_label(&gettextrs::gettext("Hide weather"));
+    let menu = popups::popover(&hide);
+    menu.set_parent(&button);
+    let (hide_button, hide_parent, hide_menu) = (button.clone(), parent.clone(), menu.clone());
+    hide.connect_clicked(move |_| {
+        match Config::load().and_then(|mut config| {
+            config.weather_enabled = false;
+            config.save()
+        }) {
+            Ok(()) => {
+                hide_menu.popdown();
+                hide_button.set_visible(false);
+            }
+            Err(error) => system::show_error(&hide_parent, &error.to_string()),
+        }
+    });
+    let gesture = gtk::GestureClick::new();
+    gesture.set_button(3);
+    let open_menu = menu.clone();
+    gesture.connect_pressed(move |_, _, _, _| open_menu.popup());
+    button.add_controller(gesture);
+    button.connect_unrealize(move |_| menu.unparent());
+    button
+}
+
 #[derive(Default)]
 struct TaskbarView {
     structure: Vec<(String, Vec<u32>)>,
@@ -371,11 +510,13 @@ fn render_taskbar(
     container: &gtk::Box,
     apps: &[Application],
     live_windows: &Rc<RefCell<Vec<WindowInfo>>>,
-    config: &Config,
     desktop: &mpsc::Sender<DesktopCommand>,
     parent: &gtk::Window,
     view: &mut TaskbarView,
+    actions: &TaskbarActions,
 ) {
+    let config_guard = actions.config.borrow();
+    let config = &*config_guard;
     let windows = live_windows.borrow();
     let mut groups: BTreeMap<String, Vec<&WindowInfo>> = BTreeMap::new();
     for window in windows.iter() {
@@ -507,6 +648,70 @@ fn render_taskbar(
             };
 
             widget.add_css_class("task-button");
+            if let Some(app) = app {
+                let action_list = gtk::Box::new(gtk::Orientation::Vertical, 4);
+                for (in_start, label) in [
+                    (
+                        true,
+                        if config.start_pinned.contains(&app.id) {
+                            "Unpin from Start"
+                        } else {
+                            "Pin to Start"
+                        },
+                    ),
+                    (
+                        false,
+                        if config.pinned.contains(&app.id) {
+                            "Unpin from taskbar"
+                        } else {
+                            "Pin to taskbar"
+                        },
+                    ),
+                ] {
+                    let action = gtk::Button::with_label(&gettextrs::gettext(label));
+                    let (id, config, parent, redraw_link) = (
+                        app.id.clone(),
+                        actions.config.clone(),
+                        parent.clone(),
+                        actions.redraw.clone(),
+                    );
+                    action.connect_clicked(move |_| {
+                        let old = config.borrow().clone();
+                        if in_start {
+                            config.borrow_mut().toggle_start_pin(&id);
+                        } else {
+                            config.borrow_mut().toggle_pin(&id);
+                        }
+                        let result = config.borrow().save();
+                        if let Err(e) = result {
+                            *config.borrow_mut() = old;
+                            system::show_error(&parent, &e.to_string());
+                        } else if let Some(redraw) =
+                            redraw_link.borrow().as_ref().and_then(|w| w.upgrade())
+                        {
+                            glib::idle_add_local_once(move || redraw());
+                        }
+                    });
+                    action_list.append(&action);
+                }
+                let shortcut =
+                    gtk::Button::with_label(&gettextrs::gettext("Create desktop shortcut"));
+                let (id, parent) = (app.id.clone(), parent.clone());
+                shortcut.connect_clicked(move |_| {
+                    if let Err(e) = applications::create_desktop_shortcut(&id) {
+                        system::show_error(&parent, &e);
+                    }
+                });
+                action_list.append(&shortcut);
+                let context = popups::popover(&action_list);
+                context.set_parent(&widget);
+                let gesture = gtk::GestureClick::new();
+                gesture.set_button(3);
+                let menu = context.clone();
+                gesture.connect_pressed(move |_, _, _, _| menu.popup());
+                widget.add_controller(gesture);
+                widget.connect_unrealize(move |_| context.unparent());
+            }
             container.append(&widget);
             view.buttons.insert(id.clone(), widget);
             view.indicators.insert(id.clone(), indicator);

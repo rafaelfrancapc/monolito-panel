@@ -1,5 +1,6 @@
 """Exercise real X11 properties and GTK popup geometry; no simulated shell."""
 import os
+import pathlib
 import re
 import subprocess
 import sys
@@ -86,6 +87,11 @@ def open_quick_settings():
 
 
 wid = wait_for(lambda: run('xdotool', 'search', '--onlyvisible', '--name', '^Desktop Panel$').splitlines()[0], 'Panel did not map')
+watcher = run('gdbus', 'call', '--session', '--dest', 'org.kde.StatusNotifierWatcher',
+              '--object-path', '/StatusNotifierWatcher', '--method',
+              'org.freedesktop.DBus.Properties.Get', 'org.kde.StatusNotifierWatcher',
+              'IsStatusNotifierHostRegistered')
+assert 'true' in watcher, watcher
 wait_for(lambda: geometry(wid) == (0, 752, 1280, 48), 'Dock geometry differs from the requested bottom strip')
 assert '_NET_WM_WINDOW_TYPE_DOCK' in prop(wid, '_NET_WM_WINDOW_TYPE')
 strut = prop(wid, '_NET_WM_STRUT_PARTIAL').split(' = ')[1]
@@ -101,6 +107,10 @@ if '--dev' not in sys.argv:
     assert 0 <= x and x + width <= 1280 and y + height <= 752 and width >= 500, (x, y, width, height)
     run('xdotool', 'key', 'Escape')
     wait_for(lambda: not visible_popups(), 'Escape did not close Start')
+    run('xdotool', 'key', 'Super_L')
+    wait_for(lambda: any(geometry(p)[2] >= 500 for p in visible_popups()), 'Super key did not open Start')
+    run('xdotool', 'key', 'Super_L')
+    wait_for(lambda: not visible_popups(), 'Super key did not close Start')
     # Search an actual XDG desktop entry and launch it using the keyboard.
     start_x, _ = open_start(start_x)
     run('xdotool', 'type', '--clearmodifiers', 'Monolito Smoke Client')
@@ -118,6 +128,20 @@ if '--dev' not in sys.argv:
     run('xdotool', 'mousemove', str(task_x), '776', 'click', '1')
     wait_for(lambda: 'IsViewable' in run('xwininfo', '-id', client), 'Taskbar did not restore the client')
     run('xdotool', 'windowclose', client)
+    # A desktop entry installed after startup must appear without restarting.
+    new_app = pathlib.Path(os.environ['XDG_DATA_HOME']) / 'applications/live-app.desktop'
+    new_app.write_text('[Desktop Entry]\nType=Application\nName=Live Installed App\n'
+                       'Exec=xmessage -name live-app -title "Live Installed App" live-test\n'
+                       'Icon=utilities-terminal\n')
+    time.sleep(1.5)
+    start_x, _ = open_start(start_x)
+    run('xdotool', 'type', '--clearmodifiers', 'Live Installed App')
+    time.sleep(0.4)
+    run('xdotool', 'key', 'Return')
+    live = wait_for(lambda: run('xdotool', 'search', '--onlyvisible', '--name',
+                                '^Live Installed App$').splitlines()[0],
+                    'New app was not loaded automatically')
+    run('xdotool', 'windowclose', live)
     # Quick settings is immediately left of the clock.
     popup = open_quick_settings()
     x, y, width, height = geometry(popup)

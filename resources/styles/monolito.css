@@ -34,6 +34,8 @@
 .task-indicator.multiple { box-shadow: -4px 0 alpha(@accent, 0.4); }
 .clock-button { font-size: 12px; }
 .panel-tray .clock-button > button { padding: 0 8px; }
+.notification-tray button { background: transparent; border: 0; box-shadow: none; min-width: 32px; min-height: 40px; padding: 0 8px; border-radius: 4px; }
+.notification-tray button:hover { background: @secondary; }
 .panel-tray .status-pill-button > button { padding: 0 12px; }
 
 .monolito-popup > contents, .monolito-power-menu > contents {
@@ -104,16 +106,33 @@
   color: @on_accent;
   border-color: @accent;
 }
+.quick-tile-controls .quick-tile.active + .quick-tile-more,
+.quick-tile-controls .quick-tile-more.active {
+  background: @accent;
+  color: @on_accent;
+  border-color: @accent;
+}
+.expandable-tile .quick-tile-controls > .quick-tile:first-child {
+  border-radius: 4px 0 0 4px;
+  border-right: 0;
+}
 .quick-tile-title { font-size: 12px; font-weight: 400; }
 .quick-tile-sub { font-size: 12px; color: @muted; }
 .monolito-popup .quick-tile-more {
   min-width: 28px;
   padding: 0;
-  margin: 1px;
+  margin: 0;
   border-radius: 0 4px 4px 0;
   border-left: 1px solid @border;
 }
 .monolito-popup .quick-tile-more.active { color: @on_accent; border-left-color: alpha(@on_accent, 0.35); }
+.weather-button, .taskbar-group > .search-button {
+  background: transparent; border: 0; box-shadow: none; border-radius: 4px;
+  min-height: 40px; padding: 0 10px; color: @text;
+}
+.weather-button:hover, .taskbar-group > .search-button:hover { background: @secondary; }
+.weather-button image { color: @text; }
+.weather-temperature { font-size: 12px; font-weight: 600; }
 .quick-details-box { background: @canvas; border-radius: 4px; padding: 12px; }
 .fluent-slider { min-height: 20px; padding: 6px 0; margin: 0; }
 .fluent-slider trough { min-height: 4px; border-radius: 2px; background: @track; }

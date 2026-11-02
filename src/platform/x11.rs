@@ -5,6 +5,7 @@ use x11rb::{
     connection::Connection,
     protocol::{
         randr::{ConnectionExt as _, NotifyMask},
+        xinput::{ConnectionExt as _, EventMask as XiEventMask, XIEventMask},
         xproto::{ConnectionExt as _, *},
         Event,
     },
@@ -61,6 +62,33 @@ impl Worker {
         let (conn, screen) = x11rb::connect(None).context("No accessible X11 display")?;
         let root = conn.setup().roots[screen].root;
         let atoms = Atoms::new(&conn)?.reply()?;
+        let mapping = conn
+            .get_keyboard_mapping(
+                conn.setup().min_keycode,
+                conn.setup().max_keycode - conn.setup().min_keycode + 1,
+            )?
+            .reply()?;
+        let super_keys: Vec<u32> = mapping
+            .keysyms
+            .chunks(mapping.keysyms_per_keycode as usize)
+            .enumerate()
+            .filter(|(_, symbols)| symbols.iter().any(|s| *s == 0xffeb || *s == 0xffec))
+            .map(|(index, _)| u32::from(conn.setup().min_keycode) + index as u32)
+            .collect();
+        if conn
+            .xinput_xi_query_version(2, 0)
+            .ok()
+            .and_then(|cookie| cookie.reply().ok())
+            .is_some()
+        {
+            let _ = conn.xinput_xi_select_events(
+                root,
+                &[XiEventMask {
+                    deviceid: 1, // XIAllMasterDevices; raw events do not grab focus.
+                    mask: vec![XIEventMask::RAW_KEY_PRESS | XIEventMask::RAW_KEY_RELEASE],
+                }],
+            );
+        }
         conn.change_window_attributes(
             root,
             &ChangeWindowAttributesAux::new()
@@ -84,6 +112,7 @@ impl Worker {
         };
         events.send(DesktopEvent::Ready(worker.geometry()?))?;
         worker.publish_windows(events)?;
+        let mut super_pressed = false;
         loop {
             match commands.recv_timeout(Duration::from_millis(80)) {
                 Ok(DesktopCommand::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
@@ -104,6 +133,19 @@ impl Worker {
                         geometry_changed = true
                     }
                     Event::ConfigureNotify(e) if e.window == root => geometry_changed = true,
+                    Event::XinputRawKeyPress(e) => {
+                        if super_keys.contains(&e.detail) {
+                            super_pressed = true;
+                        } else if super_pressed {
+                            super_pressed = false;
+                        }
+                    }
+                    Event::XinputRawKeyRelease(e) if super_keys.contains(&e.detail) => {
+                        if super_pressed {
+                            events.send(DesktopEvent::ToggleStart)?;
+                        }
+                        super_pressed = false;
+                    }
                     // A closing window can race with a read. X errors are not fatal to the shell.
                     Event::Error(_) => {}
                     _ => {}

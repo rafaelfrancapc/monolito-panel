@@ -7,3 +7,5 @@ pub mod power;
 pub mod recent;
 pub mod session;
 pub mod system;
+pub mod tray;
+pub mod weather;

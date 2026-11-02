@@ -185,3 +185,33 @@ msgstr "Carregando"
 
 msgid "remaining"
 msgstr "restantes"
+
+msgid "Log out"
+msgstr "Sair da sessão"
+
+msgid "Pin to Start"
+msgstr "Fixar no Iniciar"
+
+msgid "Unpin from Start"
+msgstr "Desafixar do Iniciar"
+
+msgid "Pin to taskbar"
+msgstr "Fixar na barra de tarefas"
+
+msgid "Unpin from taskbar"
+msgstr "Desafixar da barra de tarefas"
+
+msgid "Create desktop shortcut"
+msgstr "Criar atalho na área de trabalho"
+
+msgid "Search applications"
+msgstr "Pesquisar aplicativos"
+
+msgid "Updating weather…"
+msgstr "Atualizando clima…"
+
+msgid "Weather unavailable"
+msgstr "Clima indisponível"
+
+msgid "Hide weather"
+msgstr "Ocultar clima"

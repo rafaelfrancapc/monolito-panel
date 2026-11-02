@@ -1,6 +1,41 @@
 //! Session and power management via systemd-logind and XFCE fallbacks.
 use super::system;
 use gtk::{gio, prelude::*};
+use std::path::PathBuf;
+
+pub struct Profile {
+    pub name: String,
+    pub photo: Option<PathBuf>,
+}
+
+pub fn profile() -> Profile {
+    let user = gtk::glib::user_name().to_string_lossy().into_owned();
+    let real = gtk::glib::real_name().to_string_lossy().into_owned();
+    let name = if real.is_empty() || real == "Unknown" {
+        user.clone()
+    } else {
+        real
+    };
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let photo = home
+        .into_iter()
+        .flat_map(|home| [home.join(".face"), home.join(".face.icon")])
+        .chain(std::iter::once(
+            PathBuf::from("/var/lib/AccountsService/icons").join(&user),
+        ))
+        .find(|path| path.is_file());
+    Profile { name, photo }
+}
+
+pub async fn log_out() -> Result<(), String> {
+    let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
+    if desktop.to_ascii_lowercase().contains("cinnamon") {
+        system::command(&["cinnamon-session-quit", "--logout"]).await?;
+    } else {
+        system::command(&["xfce4-session-logout", "--logout"]).await?;
+    }
+    Ok(())
+}
 
 async fn call_logind_method(method: &str) -> Result<(), String> {
     let proxy = match gio::DBusProxy::for_bus_future(

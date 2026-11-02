@@ -15,8 +15,14 @@ output.mkdir(parents=True, exist_ok=True)
 scale = int(os.environ.get("GDK_SCALE", "1"))
 width, height = 1280 * scale, 800 * scale
 with tempfile.TemporaryDirectory() as directory:
+    fixture_bin = pathlib.Path(directory) / "bin"
+    fixture_bin.mkdir()
+    weather_fixture = fixture_bin / "curl"
+    weather_fixture.write_text("#!/bin/sh\nprintf '+23°C|Partly cloudy\\n'\n")
+    weather_fixture.chmod(0o755)
     env = dict(os.environ, XDG_CONFIG_HOME=directory + "/config",
-               XDG_DATA_HOME=directory + "/data", GSK_RENDERER="cairo", GTK_A11Y="none")
+               XDG_DATA_HOME=directory + "/data", GSK_RENDERER="cairo", GTK_A11Y="none",
+               PATH=str(fixture_bin) + ":" + os.environ["PATH"])
     apps = pathlib.Path(env["XDG_DATA_HOME"]) / "applications"
     apps.mkdir(parents=True)
     for name, icon in [("Themed icon", "utilities-terminal"), ("Missing icon", "does-not-exist"),
@@ -26,7 +32,9 @@ with tempfile.TemporaryDirectory() as directory:
     config = pathlib.Path(env["XDG_CONFIG_HOME"]) / "monolito"
     config.mkdir(parents=True)
     (config / "panel.toml").write_text(
-        'version = 1\npinned = ["Themed icon.desktop", "Missing icon.desktop", "File icon.desktop"]\n')
+        'version = 1\npinned = ["Themed icon.desktop"]\n'
+        'start_pinned = ["Missing icon.desktop", "File icon.desktop"]\n'
+        'weather_enabled = true\nweather_location = "São Paulo"\n')
     wm = subprocess.Popen(["xfwm4", "--compositor=off"], env=env, stdout=subprocess.DEVNULL)
     try:
         wait_for(lambda: "window id" in run("xprop", "-root", "_NET_SUPPORTING_WM_CHECK"), "WM")
@@ -39,9 +47,20 @@ with tempfile.TemporaryDirectory() as directory:
                                                "^Desktop Panel$").splitlines()[0], "Panel")
                     wait_for(lambda: geometry(wid) == (0, height - 48 * scale, width, 48 * scale), "Scaled dock")
                     time.sleep(1)
-                    for name, x in (("start", width // 2 - 70 * scale), ("quick", width - 120 * scale)):
-                        run("xdotool", "mousemove", str(x), str(height - 24 * scale), "click", "1")
-                        popup = wait_for(helpers["visible_popups"], name)[0]
+                    for name in ("start", "quick"):
+                        if name == "start":
+                            popup = None
+                            for x in range(width // 2 - 120 * scale, width // 2 + 120 * scale, 8 * scale):
+                                run("xdotool", "mousemove", str(x), str(height - 24 * scale), "click", "1")
+                                popup = next((p for p in helpers["visible_popups"]()
+                                              if geometry(p)[2] >= 500 * scale), None)
+                                if popup: break
+                                run("xdotool", "key", "Escape")
+                            assert popup, "Start button not found"
+                        else:
+                            x = width - 120 * scale
+                            run("xdotool", "mousemove", str(x), str(height - 24 * scale), "click", "1")
+                            popup = wait_for(helpers["visible_popups"], name)[0]
                         time.sleep(1)
                         x0, y0, w, h = geometry(popup)
                         run("import", "-window", "root", str(output / f"{theme}-{name}-{scale}x.png"))

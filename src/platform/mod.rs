@@ -90,6 +90,7 @@ pub enum DesktopEvent {
     Attached(Geometry),
     Geometry(Geometry),
     Windows(Vec<WindowInfo>),
+    ToggleStart,
     Error(String),
 }
 #[derive(Debug)]

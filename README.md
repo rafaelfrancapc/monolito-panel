@@ -43,7 +43,8 @@ sudo apt-get install --no-install-recommends xvfb xauth xfwm4 dbus-x11 \
 
 ```bash
 ./scripts/build-deb.sh
-sudo apt install ./dist/monolito-panel_0.1.0_$(dpkg --print-architecture).deb
+sudo apt install ./dist/monolito-panel_0.1.2_$(dpkg --print-architecture).deb
+systemctl --user restart monolito-panel.service
 ```
 
 O script compila com `--release --locked` e inclui binário, traduções, unidade
@@ -91,6 +92,10 @@ version = 1
 height = 48
 alignment = "center" # ou "left"
 pinned = ["org.xfce.Thunar.desktop", "firefox.desktop"]
+start_pinned = ["org.gnome.Calculator.desktop"]
+weather_enabled = true
+# vazio = localização aproximada pelo IP; também aceita cidade, estado ou país
+weather_location = "São Paulo, SP"
 ```
 
 ```toml
@@ -109,13 +114,42 @@ Settings e [GTK Greeter](https://github.com/rafaelfrancapc/monolito-gtk-greeter)
 continuam processos separados. O Greeter usa GTK3/LightDM e exige configuração
 de tema na tela de login pelo administrador; o painel não altera LightDM.
 
+`pinned` controla apenas a barra; `start_pinned` controla apenas o Iniciar. Fixar
+um aplicativo em um local remove sua fixação no outro. O clique direito no
+Iniciar ou no ícone da barra oferece fixação e atalho na área de trabalho.
+A lista de apps instalados atualiza
+automaticamente pelo monitor de aplicativos do GIO. A tecla Windows abre e fecha
+o Iniciar numa sessão X11 com XInput2. O nome de perfil usa o nome real do sistema,
+e a foto vem de `~/.face`, `~/.face.icon` ou AccountsService. Clicar no perfil
+oferece logout pela sessão XFCE ou Cinnamon.
+
+O clima aparece no canto esquerdo e atualiza ao iniciar e a cada 30 minutos.
+Sem `weather_location`, o serviço wttr.in estima a localização pelo endereço IP;
+defina uma cidade para evitar essa estimativa. O clique direito oferece **Ocultar
+clima** e grava `weather_enabled = false`. Para reativar, altere o valor para
+`true` no `panel.toml` e reinicie o serviço. Se a rede ou o provedor estiverem
+indisponíveis, o painel mantém o último resultado e informa o erro no tooltip.
+
+A lupa ao lado do Iniciar abre o App Finder no XFCE. No Cinnamon, abre diretamente
+a pesquisa do Iniciar do painel, que substitui o menu do painel nativo.
+
 ## Estado e validação
 
 Busca, lançamento, fixação, janela ativa, agrupamento, rede, Bluetooth, áudio,
 brilho, bateria, perfis de energia e calendário estão implementados. Os controles
 dependem dos serviços reais da sessão; sem eles aparecem indisponíveis.
-Histórico de notificações e bandeja SNI ainda não estão disponíveis. A execução
-em Wayland requer outro backend.
+A bandeja StatusNotifier hospeda os ícones de serviços que usam esse protocolo,
+com ativação e menu de contexto. Ícones XEmbed antigos ainda precisam de uma ponte
+separada. O brilho tenta `brightnessctl`, `xbacklight`, sysfs e, por fim, escurece
+por software com XRandR. Histórico de notificações ainda não está disponível.
+A execução em Wayland requer outro backend.
 
 Os testes automatizados cobrem lógica e uma sessão privada Xvfb/xfwm4. Veja
 [VALIDATION.md](docs/VALIDATION.md) para resultados e limites da validação.
+
+## Idiomas
+
+O texto fonte é inglês. O pacote inclui catálogos gettext para português do Brasil
+(`pt_BR`), português (`pt`), espanhol, francês, alemão e italiano. O idioma segue
+a locale da sessão. `LANGUAGE=pt_BR monolito-panel --dev` permite testar um
+catálogo específico.

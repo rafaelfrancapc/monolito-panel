@@ -27,6 +27,7 @@ Priority: optional
 Architecture: $architecture
 Maintainer: Monolito Panel contributors
 Depends: libc6, libgtk-4-1 (>= 4.12), libglib2.0-0t64, xfce4-panel | cinnamon
+Recommends: brightnessctl | xbacklight, x11-xserver-utils, curl, xfce4-appfinder | cinnamon
 Description: Fluent style desktop panel for XFCE and Cinnamon X11
  Includes a taskbar, Start menu, quick settings, and a user session service.
 CONTROL

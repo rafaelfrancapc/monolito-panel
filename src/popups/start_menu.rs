@@ -92,10 +92,33 @@ pub fn build(
 
     let user_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     user_box.set_hexpand(true);
-    user_box.append(&gtk::Image::from_icon_name("avatar-default-symbolic"));
-    let user_label = gtk::Label::new(Some(&glib::user_name().to_string_lossy()));
+    let user_button = gtk::MenuButton::new();
+    let user_inner = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let profile = crate::services::session::profile();
+    let avatar = if let Some(path) = profile.photo {
+        gtk::Image::from_file(path)
+    } else {
+        gtk::Image::from_icon_name("avatar-default-symbolic")
+    };
+    avatar.set_pixel_size(24);
+    user_inner.append(&avatar);
+    let user_label = gtk::Label::new(Some(&profile.name));
     user_label.set_xalign(0.0);
-    user_box.append(&user_label);
+    user_inner.append(&user_label);
+    user_button.set_child(Some(&user_inner));
+    let logout = gtk::Button::with_label(&gettextrs::gettext("Log out"));
+    let logout_menu = super::popover(&logout);
+    let logout_parent = parent.clone();
+    logout.connect_clicked(move |_| {
+        let parent = logout_parent.clone();
+        glib::MainContext::default().spawn_local(async move {
+            if let Err(error) = session::log_out().await {
+                system::show_error(&parent, &error);
+            }
+        });
+    });
+    user_button.set_popover(Some(&logout_menu));
+    user_box.append(&user_button);
     footer.append(&user_box);
 
     let settings = gtk::Button::from_icon_name("emblem-system-symbolic");
@@ -205,6 +228,17 @@ pub fn build(
 
     let popup = super::popover(&content);
     popup.set_halign(gtk::Align::Center);
+    let super_keys = gtk::EventControllerKey::new();
+    super_keys.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let weak_popup = popup.downgrade();
+    super_keys.connect_key_released(move |_, key, _, _| {
+        if matches!(key, gtk::gdk::Key::Super_L | gtk::gdk::Key::Super_R) {
+            if let Some(popup) = weak_popup.upgrade() {
+                popup.popdown();
+            }
+        }
+    });
+    popup.add_controller(super_keys);
 
     // Search activation
     let search_apps = apps.to_vec();
@@ -263,13 +297,13 @@ pub fn build(
             let mut shown: Vec<_> = apps
                 .iter()
                 .filter(|a| {
-                    (show_all || config_read.pinned.contains(&a.id))
+                    (show_all || config_read.start_pinned.contains(&a.id))
                         && a.name.to_lowercase().contains(&query)
                 })
                 .collect();
 
             if !show_all {
-                shown.sort_by_key(|a| config_read.pinned.iter().position(|id| id == &a.id));
+                shown.sort_by_key(|a| config_read.start_pinned.iter().position(|id| id == &a.id));
             }
 
             empty.set_visible(shown.is_empty());
@@ -308,34 +342,63 @@ pub fn build(
                 });
                 cell.append(&launch);
 
-                let pin = gtk::Button::with_label(&gettextrs::gettext(
-                    if config_read.pinned.contains(&app.id) {
-                        "Unpin"
-                    } else {
-                        "Pin"
-                    },
-                ));
-                pin.add_css_class("pin-action");
-                let (id, config, parent, on_pins, popup) = (
-                    app.id.clone(),
-                    config.clone(),
-                    parent.clone(),
-                    on_pins.clone(),
-                    popup.clone(),
-                );
-                pin.connect_clicked(move |_| {
-                    let old = config.borrow().clone();
-                    config.borrow_mut().toggle_pin(&id);
-                    let result = config.borrow().save();
-                    if let Err(e) = result {
-                        *config.borrow_mut() = old;
-                        system::show_error(&parent, &e.to_string());
-                    } else {
-                        on_pins();
-                        popup.popdown();
+                let action_list = gtk::Box::new(gtk::Orientation::Vertical, 4);
+                for (in_start, label) in [
+                    (
+                        true,
+                        if config_read.start_pinned.contains(&app.id) {
+                            "Unpin from Start"
+                        } else {
+                            "Pin to Start"
+                        },
+                    ),
+                    (
+                        false,
+                        if config_read.pinned.contains(&app.id) {
+                            "Unpin from taskbar"
+                        } else {
+                            "Pin to taskbar"
+                        },
+                    ),
+                ] {
+                    let pin = gtk::Button::with_label(&gettextrs::gettext(label));
+                    pin.add_css_class("menu-item-button");
+                    let (id, config, parent, on_pins, popup) = (
+                        app.id.clone(),
+                        config.clone(),
+                        parent.clone(),
+                        on_pins.clone(),
+                        popup.clone(),
+                    );
+                    pin.connect_clicked(move |_| {
+                        let old = config.borrow().clone();
+                        if in_start {
+                            config.borrow_mut().toggle_start_pin(&id);
+                        } else {
+                            config.borrow_mut().toggle_pin(&id);
+                        }
+                        let result = config.borrow().save();
+                        if let Err(e) = result {
+                            *config.borrow_mut() = old;
+                            system::show_error(&parent, &e.to_string());
+                        } else {
+                            on_pins();
+                            popup.popdown();
+                        }
+                    });
+                    action_list.append(&pin);
+                }
+                let shortcut =
+                    gtk::Button::with_label(&gettextrs::gettext("Create desktop shortcut"));
+                shortcut.add_css_class("menu-item-button");
+                let (id, parent) = (app.id.clone(), parent.clone());
+                shortcut.connect_clicked(move |_| {
+                    if let Err(e) = applications::create_desktop_shortcut(&id) {
+                        system::show_error(&parent, &e);
                     }
                 });
-                let actions = super::popover(&pin);
+                action_list.append(&shortcut);
+                let actions = super::popover(&action_list);
                 actions.set_parent(&launch);
                 let gesture = gtk::GestureClick::new();
                 gesture.set_button(3);
