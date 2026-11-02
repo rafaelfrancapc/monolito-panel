@@ -14,8 +14,8 @@ pub fn build(
     parent: &gtk::Window,
     on_pins: Rc<dyn Fn()>,
 ) -> gtk::Popover {
-    let content = gtk::Box::new(gtk::Orientation::Vertical, 14);
-    content.set_size_request(580, -1);
+    let content = gtk::Box::new(gtk::Orientation::Vertical, 16);
+    content.set_size_request(monolito_ui::START_WIDTH, 540);
     content.add_css_class("start-menu-content");
 
     // Search bar at the top (Windows 11 style)
@@ -42,7 +42,7 @@ pub fn build(
     let results = gtk::FlowBox::builder()
         .selection_mode(gtk::SelectionMode::None)
         .max_children_per_line(6)
-        .min_children_per_line(6)
+        .min_children_per_line(4)
         .homogeneous(true)
         .row_spacing(6)
         .column_spacing(4)
@@ -54,6 +54,7 @@ pub fn build(
         .min_content_height(190)
         .max_content_height(280)
         .propagate_natural_height(true)
+        .vexpand(true)
         .child(&results)
         .build();
     content.append(&scroll);
@@ -334,7 +335,28 @@ pub fn build(
                         popup.popdown();
                     }
                 });
-                cell.append(&pin);
+                let actions = super::popover(&pin);
+                actions.set_parent(&launch);
+                let gesture = gtk::GestureClick::new();
+                gesture.set_button(3);
+                let menu = actions.clone();
+                gesture.connect_pressed(move |_, _, _, _| menu.popup());
+                launch.add_controller(gesture);
+                let keys = gtk::EventControllerKey::new();
+                let menu = actions.clone();
+                keys.connect_key_pressed(move |_, key, _, modifiers| {
+                    if key == gtk::gdk::Key::Menu
+                        || (key == gtk::gdk::Key::F10
+                            && modifiers.contains(gtk::gdk::ModifierType::SHIFT_MASK))
+                    {
+                        menu.popup();
+                        glib::Propagation::Stop
+                    } else {
+                        glib::Propagation::Proceed
+                    }
+                });
+                launch.add_controller(keys);
+                launch.connect_unrealize(move |_| actions.unparent());
                 results.insert(&cell, -1);
             }
 
@@ -350,8 +372,11 @@ pub fn build(
                     btn.add_css_class("recent-item-tile");
 
                     let item_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-                    let icon = gtk::Image::from_icon_name(&item.icon_name);
-                    icon.set_pixel_size(24);
+                    let icon = crate::services::icons::image(
+                        &item.icon_name,
+                        &["text-x-generic-symbolic"],
+                        24,
+                    );
                     item_box.append(&icon);
 
                     let text_box = gtk::Box::new(gtk::Orientation::Vertical, 2);

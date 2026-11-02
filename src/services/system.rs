@@ -30,6 +30,7 @@ pub async fn command(args: &[&str]) -> Result<String, String> {
 
 pub fn open_settings(parent: &gtk::Window) {
     const SETTINGS_APPS: &[&str] = &[
+        "org.monolito.Settings.desktop",
         "xfce-settings-manager.desktop",
         "xfce4-settings-manager.desktop",
         "cinnamon-settings.desktop",

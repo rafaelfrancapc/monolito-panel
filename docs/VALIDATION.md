@@ -1,62 +1,25 @@
 # Validação executada
 
-Ambiente: **Ubuntu 24.04 LTS em contêiner**, GTK **4.14.5**, Rust estável
-**1.99.1**, Xvfb e **xfwm4 4.18.0**, renderizador Cairo e compositor desligado.
-O host de onboarding é Debian; a compilação foi feita no Ubuntu para
-corresponder à base do Linux Mint 22.3 e à VM/WSL indicada pelo usuário.
+Ambiente: Ubuntu 24.04 em contêiner, GTK 4.14.5, Rust estável, Xvfb e xfwm4.
+O alvo de produção é Linux Mint 22.3 em sessão XFCE ou Cinnamon X11.
 
-## Resultados
+- `cargo fmt --all --check`, `cargo check --workspace --locked` e Clippy com
+  `-D warnings`: passaram.
+- `cargo test --workspace --locked`: 20 testes passaram. O teste de recursos GTK
+  foi executado separadamente com `xvfb-run` e passou; verifica os nomes de
+  bateria e recursos de ícones para todos os estados.
+- `scripts/smoke-x11.sh`: passou. Verifica tipo dock, área reservada, popups,
+  Escape, busca/lançamento XDG, minimização/restauração e mudança RandR.
+- `scripts/visual-check.py`: capturas reais de Start e configurações rápidas nos
+  temas claro e escuro, com geometria dentro da tela em escalas 100% e 200%.
+- `scripts/test-session.sh`: passou com substituição e restauração simuladas dos
+  painéis nativos XFCE e Cinnamon, sem alterar a sessão do host.
+- `scripts/build-deb.sh`: gerou `dist/monolito-panel_0.1.0_amd64.deb` com binário,
+  tradução, serviço do usuário e autostart XDG. O conteúdo e o controle foram
+  inspecionados com `dpkg-deb`.
 
-- `scripts/cloud-ubuntu.sh setup`: passou, incluindo repetição com pacotes
-  instalados, build com lockfile e compilação/verificação do catálogo gettext.
-- `cargo fmt --all --check`: passou.
-- `cargo check --workspace --locked`: passou.
-- `cargo test --workspace --locked`: **17 testes passaram**, sem falhas ou skips.
-  Há 16 testes no painel e 1 em `monolito-ui`; não existem doctests executáveis.
-- `cargo clippy --workspace --all-targets --locked -- -D warnings`: passou.
-- `cargo build --locked`: passou.
-- `scripts/cloud-ubuntu.sh smoke` / `scripts/smoke-x11.sh`: passou numa sessão
-  X11/D-Bus privada. Confirma:
-  - tipo dock e `SKIP_TASKBAR` no XID real do GTK;
-  - geometria `1280×48` em `(0,752)` e strut com intervalo inclusivo `0..1279`;
-  - workarea do xfwm4 reduzida para `1280×752`;
-  - popups GTK acima da barra, Iniciar e configurações rápidas;
-  - Escape fecha o popup mesmo quando o campo de pesquisa possui foco;
-  - pesquisa e lançamento por Enter de um `.desktop` real de teste;
-  - cliente X11 ativado, minimizado e restaurado pela taskbar;
-  - redimensionamento do framebuffer para `1024×768` e retorno para `1280×800`,
-    com atualização da posição, largura e strut;
-  - segundo início em `--dev` com todos os valores de strut zerados.
-
-O teste detectou e confirmou a correção de uma largura zero no contêiner rolável
-da taskbar. Também valida a localização dos controles pela geometria real, sem
-presumir alinhamento ou coordenadas fixas dos botões.
-
-O teste Xvfb emite avisos de DRI3/EGL indisponível, limite de descritores D-Bus e
-ausência de session manager. As verificações terminaram com status zero usando
-Cairo. Não é um teste de aceleração gráfica nem de uma sessão XFCE completa.
-
-## Limites da evidência
-
-Não há acesso ao compositor WSLg ou a hardware/serviços reais de rede, áudio,
-Bluetooth, brilho e bateria nesta tarefa. No contêiner, os estados indisponíveis
-foram verificados; as mudanças reais desses dispositivos ainda precisam ser
-validadas em uma máquina Mint/XFCE. Não há testes de SNI ou histórico de
-notificações.
-
-O resize virtual testa eventos RandR e o fallback quando não há saída ativa;
-não comprova hotplug ou posicionamento em vários monitores físicos. Os testes
-unitários cobrem o cálculo de struts inclusive em monitores interiores.
-
-Checklist complementar na VM XFCE/X11:
-
-- várias aplicações e grupos, ícones, alternância de workspace;
-- resolução com saída ativa, hotplug e monitores de alturas/posições diferentes;
-- temas, composição, tradução, fontes, pequenos monitores e escala HiDPI;
-- NetworkManager/Polkit, BlueZ, PipeWire/WirePlumber, power-profiles-daemon e
-  UPower reais;
-- coexistência com xfce4-panel e abertura dos gerenciadores do XFCE/Cinnamon;
-- auditoria de acessibilidade e leitores de tela.
-
-A configuração reutilizável é salva como rascunho nas configurações do ambiente.
-Salvar o rascunho não publica o snapshot nem valida a restauração em outra tarefa.
+O Xvfb não fornece hardware de bateria, Wi-Fi, Bluetooth ou brilho, nem reproduz
+uma sessão Mint completa. A reação dos serviços reais, o Win11 Icon Theme
+instalado e a substituição do painel no desktop Mint ainda exigem validação nessa
+sessão. O tema de ícones ausente foi testado como fallback; a GUI não deve mostrar
+símbolos quebrados por essa ausência.

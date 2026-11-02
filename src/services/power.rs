@@ -85,7 +85,15 @@ pub async fn get_battery() -> Result<Option<BatteryInfo>, String> {
 
 pub fn battery_icon(percentage: f64, state: &BatteryState) -> &'static str {
     if state.is_charging() {
-        return "battery-charging-symbolic";
+        return match percentage.round() as i32 {
+            0..=15 => "battery-caution-charging-symbolic",
+            16..=35 => "battery-low-charging-symbolic",
+            36..=80 => "battery-good-charging-symbolic",
+            _ => "battery-full-charging-symbolic",
+        };
+    }
+    if *state == BatteryState::FullyCharged {
+        return "battery-level-100-charged-symbolic";
     }
     match percentage.round() as i32 {
         0..=15 => "battery-level-10-symbolic",
@@ -97,7 +105,7 @@ pub fn battery_icon(percentage: f64, state: &BatteryState) -> &'static str {
         66..=75 => "battery-level-70-symbolic",
         76..=85 => "battery-level-80-symbolic",
         86..=95 => "battery-level-90-symbolic",
-        _ => "battery-level-100-charged-symbolic",
+        _ => "battery-level-100-symbolic",
     }
 }
 
@@ -183,7 +191,7 @@ mod tests {
     fn maps_battery_icons_correctly() {
         assert_eq!(
             battery_icon(99.0, &BatteryState::Discharging),
-            "battery-level-100-charged-symbolic"
+            "battery-level-100-symbolic"
         );
         assert_eq!(
             battery_icon(50.0, &BatteryState::Discharging),
@@ -195,7 +203,7 @@ mod tests {
         );
         assert_eq!(
             battery_icon(50.0, &BatteryState::Charging),
-            "battery-charging-symbolic"
+            "battery-good-charging-symbolic"
         );
     }
 

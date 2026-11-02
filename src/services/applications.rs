@@ -9,12 +9,15 @@ pub struct Application {
 }
 impl Application {
     pub fn image(&self, size: i32) -> gtk::Image {
-        let image = gio::Icon::for_string(&self.icon)
-            .ok()
-            .map(|icon| gtk::Image::from_gicon(&icon))
-            .unwrap_or_else(|| gtk::Image::from_icon_name("application-x-executable-symbolic"));
-        image.set_pixel_size(size);
-        image
+        super::icons::image(
+            &self.icon,
+            &[
+                self.id.trim_end_matches(".desktop"),
+                &self.wm_class.to_lowercase(),
+                "application-x-executable-symbolic",
+            ],
+            size,
+        )
     }
     pub fn matches_class(&self, class: &str) -> bool {
         !class.is_empty()
@@ -22,7 +25,13 @@ impl Application {
                 || self
                     .id
                     .trim_end_matches(".desktop")
-                    .eq_ignore_ascii_case(class))
+                    .eq_ignore_ascii_case(class)
+                || self
+                    .id
+                    .trim_end_matches(".desktop")
+                    .rsplit('.')
+                    .next()
+                    .is_some_and(|id| id.eq_ignore_ascii_case(class)))
     }
 }
 /// Run off the GTK thread. Return plain metadata, not thread-bound GTK objects.

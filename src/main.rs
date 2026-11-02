@@ -12,7 +12,13 @@ fn main() -> glib::ExitCode {
     let locale = std::env::var_os("MONOLITO_LOCALE_DIR")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| {
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/locale")
+            if std::path::Path::new("/usr/share/locale/pt_BR/LC_MESSAGES/monolito-panel.mo")
+                .exists()
+            {
+                std::path::PathBuf::from("/usr/share/locale")
+            } else {
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/locale")
+            }
         });
     let _ = gettextrs::bindtextdomain("monolito-panel", locale);
     let _ = gettextrs::textdomain("monolito-panel");

@@ -10,13 +10,28 @@ pub fn label(text: &str, class: &str) -> gtk::Label {
     label
 }
 pub fn popover(child: &impl IsA<gtk::Widget>) -> gtk::Popover {
+    let scroll = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .vscrollbar_policy(gtk::PolicyType::Automatic)
+        .propagate_natural_height(true)
+        .propagate_natural_width(true)
+        .child(child)
+        .build();
     let popover = gtk::Popover::builder()
         .position(gtk::PositionType::Top)
         .has_arrow(false)
         .autohide(true)
-        .child(child)
+        .child(&scroll)
         .build();
     popover.add_css_class("monolito-popup");
+    popover.set_offset(0, 8);
+    popover.connect_show(move |popup| {
+        if let Some(surface) = popup.native().and_then(|native| native.surface()) {
+            if let Some(monitor) = popup.display().monitor_at_surface(&surface) {
+                scroll.set_max_content_height((monitor.geometry().height() - 128).max(200));
+            }
+        }
+    });
     // SearchEntry consumes Escape; capture it before the focused child.
     let keys = gtk::EventControllerKey::new();
     keys.set_propagation_phase(gtk::PropagationPhase::Capture);

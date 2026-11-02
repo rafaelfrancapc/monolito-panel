@@ -46,11 +46,26 @@ pub fn activate(application: &gtk::Application) {
         return;
     };
 
-    // Register custom vector SVG icon paths
+    // Assets travel with the binary, including when installed outside the checkout.
+    gtk::gio::resources_register_include!("panel.gresource").expect("Embedded panel icons");
     let icon_theme = gtk::IconTheme::for_display(&display);
-    let icon_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/icons");
-    if icon_dir.exists() {
-        icon_theme.add_search_path(&icon_dir);
+    icon_theme.add_resource_path("/org/monolito/Panel/icons");
+    if let Some(name) = appearance
+        .icon_theme
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+    {
+        if icon_theme
+            .search_path()
+            .iter()
+            .any(|root| root.join(name).join("index.theme").is_file())
+        {
+            if let Some(settings) = gtk::Settings::default() {
+                settings.set_gtk_icon_theme_name(Some(name));
+            }
+        } else {
+            eprintln!("Icon theme {name} is not installed; using the desktop fallback.");
+        }
     }
 
     let provider = gtk::CssProvider::new();
@@ -73,6 +88,9 @@ pub fn activate(application: &gtk::Application) {
         .default_height(i32::from(config.height))
         .build();
     window.add_css_class("monolito-panel");
+    if !appearance.animations {
+        window.add_css_class("no-motion");
+    }
     if !display.is_composited() {
         window.add_css_class("uncomposited");
     }
@@ -82,7 +100,8 @@ pub fn activate(application: &gtk::Application) {
         "dark"
     });
 
-    let row = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+    let row = gtk::CenterBox::new();
+    row.add_css_class("panel-row");
     row.set_height_request(i32::from(config.height));
 
     // Start button
@@ -91,7 +110,7 @@ pub fn activate(application: &gtk::Application) {
         .build();
     start.add_css_class("start-button");
     let start_icon = gtk::Image::from_icon_name("start-symbolic");
-    start_icon.set_pixel_size(22);
+    start_icon.set_pixel_size(24);
     start.set_child(Some(&start_icon));
 
     // Taskbar container
@@ -100,12 +119,15 @@ pub fn activate(application: &gtk::Application) {
     let taskbar_alignment = config.alignment;
     let center_box = gtk::Box::new(gtk::Orientation::Horizontal, 4);
     center_box.set_hexpand(true);
+    center_box.set_valign(gtk::Align::Center);
     center_box.set_halign(match taskbar_alignment {
         TaskbarAlignment::Center => gtk::Align::Center,
         TaskbarAlignment::Left => gtk::Align::Start,
     });
 
     center_box.append(&start);
+    center_box.add_css_class("taskbar-group");
+    taskbar.add_css_class("taskbar-items");
 
     let tasks_scroll = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::External)
@@ -115,11 +137,17 @@ pub fn activate(application: &gtk::Application) {
         .child(&taskbar)
         .build();
     center_box.append(&tasks_scroll);
-    row.append(&center_box);
+    if taskbar_alignment == TaskbarAlignment::Center {
+        row.set_center_widget(Some(&center_box));
+    } else {
+        row.set_start_widget(Some(&center_box));
+    }
 
     // Right tray area (Windows 11 Unified Quick Settings + Clock)
     let tray_box = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    tray_box.add_css_class("panel-tray");
     tray_box.set_halign(gtk::Align::End);
+    tray_box.set_valign(gtk::Align::Center);
 
     let quick = gtk::MenuButton::builder()
         .tooltip_text(gettextrs::gettext("Quick settings"))
@@ -130,6 +158,10 @@ pub fn activate(application: &gtk::Application) {
     let tray_net_icon = gtk::Image::from_icon_name("network-wireless-symbolic");
     let tray_vol_icon = gtk::Image::from_icon_name("audio-volume-high-symbolic");
     let tray_bat_icon = gtk::Image::from_icon_name("battery-level-100-charged-symbolic");
+    for icon in [&tray_net_icon, &tray_vol_icon, &tray_bat_icon] {
+        icon.set_pixel_size(16);
+        icon.set_valign(gtk::Align::Center);
+    }
     tray_bat_icon.set_visible(false);
 
     tray_icons.append(&tray_net_icon);
@@ -149,7 +181,7 @@ pub fn activate(application: &gtk::Application) {
     clock.set_popover(Some(&popups::calendar::build()));
     tray_box.append(&clock);
 
-    row.append(&tray_box);
+    row.set_end_widget(Some(&tray_box));
     window.set_child(Some(&row));
 
     let update_clock =
@@ -203,7 +235,9 @@ pub fn activate(application: &gtk::Application) {
     }
 
     let reserve = !std::env::args().any(|a| a == "--dev");
-    let (desktop, events) = X11Backend::start(config.height, config.monitor, reserve);
+    let scale = window.scale_factor().max(1);
+    let physical_height = config.height.saturating_mul(scale as u16);
+    let (desktop, events) = X11Backend::start(physical_height, config.monitor, reserve);
     let config = Rc::new(RefCell::new(config));
     let apps: Rc<RefCell<Vec<Application>>> = Rc::new(RefCell::new(vec![]));
     let windows: Rc<RefCell<Vec<WindowInfo>>> = Rc::new(RefCell::new(vec![]));
@@ -263,8 +297,10 @@ pub fn activate(application: &gtk::Application) {
         for event in events.try_iter() {
             match event {
                 DesktopEvent::Ready(geometry) => {
-                    window
-                        .set_default_size(geometry.width as i32, i32::from(config.borrow().height));
+                    window.set_default_size(
+                        geometry.width as i32 / scale,
+                        i32::from(config.borrow().height),
+                    );
                     gtk::prelude::WidgetExt::realize(&window);
                     let xid = crate::platform::native_window_id(window.upcast_ref());
                     if let Some(id) = xid {
@@ -276,16 +312,18 @@ pub fn activate(application: &gtk::Application) {
                     }
                 }
                 DesktopEvent::Attached(geometry) => {
-                    window
-                        .set_default_size(geometry.width as i32, i32::from(config.borrow().height));
+                    window.set_default_size(
+                        geometry.width as i32 / scale,
+                        i32::from(config.borrow().height),
+                    );
                     window.present();
                     eprintln!(
                         "Dock attached: {}x{} at {},{}; reservation {}",
                         geometry.width,
-                        config.borrow().height,
+                        physical_height,
                         geometry.x,
-                        geometry.y + geometry.height as i32 - i32::from(config.borrow().height),
-                        if geometry.bottom_strut(config.borrow().height.into(), reserve)[3] == 0 {
+                        geometry.y + geometry.height as i32 - i32::from(physical_height),
+                        if geometry.bottom_strut(physical_height.into(), reserve)[3] == 0 {
                             "off"
                         } else {
                             "on"
@@ -293,8 +331,10 @@ pub fn activate(application: &gtk::Application) {
                     );
                 }
                 DesktopEvent::Geometry(geometry) => {
-                    window
-                        .set_default_size(geometry.width as i32, i32::from(config.borrow().height));
+                    window.set_default_size(
+                        geometry.width as i32 / scale,
+                        i32::from(config.borrow().height),
+                    );
                     let _ = desktop.send(DesktopCommand::Reposition);
                 }
                 DesktopEvent::Windows(value) => {
@@ -324,6 +364,7 @@ struct TaskbarView {
     buttons: BTreeMap<String, gtk::Widget>,
     indicators: BTreeMap<String, gtk::Box>,
     window_items: BTreeMap<u32, gtk::Button>,
+    fallback_icons: BTreeMap<String, (gtk::Image, Option<crate::platform::WindowIcon>)>,
 }
 
 fn render_taskbar(
@@ -378,24 +419,32 @@ fn render_taskbar(
         view.buttons.clear();
         view.indicators.clear();
         view.window_items.clear();
+        view.fallback_icons.clear();
 
         for id in &order {
             let app = apps.iter().find(|a| &a.id == id);
             let group = groups.get(id).cloned().unwrap_or_default();
-            let icon = app.map(|a| a.image(24)).unwrap_or_else(|| {
-                let icon = gtk::Image::from_icon_name("application-x-executable-symbolic");
-                icon.set_pixel_size(24);
-                icon
-            });
+            let icon = app
+                .map(|a| a.image(24))
+                .unwrap_or_else(|| crate::services::icons::image("", &[], 24));
+            if icon.icon_name().as_deref() == Some("application-x-executable-symbolic") {
+                view.fallback_icons.insert(id.clone(), (icon.clone(), None));
+            }
 
-            let inner = gtk::Box::new(gtk::Orientation::Vertical, 2);
-            inner.append(&icon);
+            // Keep the glyph centered independently of the running indicator.
+            let inner = gtk::Overlay::new();
+            inner.set_size_request(40, 40);
+            icon.set_halign(gtk::Align::Center);
+            icon.set_valign(gtk::Align::Center);
+            inner.set_child(Some(&icon));
 
             // Windows 11 Running Indicator Bar
             let indicator = gtk::Box::new(gtk::Orientation::Horizontal, 0);
             indicator.set_halign(gtk::Align::Center);
+            indicator.set_valign(gtk::Align::End);
+            indicator.set_margin_bottom(2);
             indicator.add_css_class("task-indicator");
-            inner.append(&indicator);
+            inner.add_overlay(&indicator);
 
             let widget: gtk::Widget = if group.len() > 1 {
                 let button = gtk::MenuButton::new();
@@ -470,6 +519,24 @@ fn render_taskbar(
         let group = groups.get(id).cloned().unwrap_or_default();
         let is_running = !group.is_empty();
         let is_active = group.iter().any(|w| w.active);
+
+        // Some clients publish their icon after mapping. Update it without
+        // rebuilding the button, which would close an open window-group menu.
+        if let Some((image, previous)) = view.fallback_icons.get_mut(id) {
+            let current = group.iter().find_map(|w| w.icon.as_ref());
+            if current != previous.as_ref() {
+                if let Some(icon) = current {
+                    image.set_paintable(
+                        crate::services::icons::window_image(icon, 24)
+                            .paintable()
+                            .as_ref(),
+                    );
+                } else {
+                    image.set_icon_name(Some("application-x-executable-symbolic"));
+                }
+                *previous = current.cloned();
+            }
+        }
 
         if let Some(button) = view.buttons.get(id) {
             if is_active {

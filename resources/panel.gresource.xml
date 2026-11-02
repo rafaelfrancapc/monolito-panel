@@ -1,0 +1,8 @@
+<gresources>
+  <gresource prefix="/org/monolito/Panel/icons/scalable/actions">
+    <file alias="start-symbolic.svg">icons/start-symbolic.svg</file>
+    <file alias="airplane-mode-symbolic.svg">icons/airplane-mode-symbolic.svg</file>
+    <file alias="battery-saver-symbolic.svg">icons/battery-saver-symbolic.svg</file>
+    <file alias="display-brightness-symbolic.svg">icons/display-brightness-symbolic.svg</file>
+  </gresource>
+</gresources>

@@ -6,118 +6,31 @@ use std::{
 };
 
 pub fn build(parent: &gtk::Window) -> gtk::Popover {
-    let content = gtk::Box::new(gtk::Orientation::Vertical, 14);
-    content.set_size_request(380, -1);
+    let content = gtk::Box::new(gtk::Orientation::Vertical, 16);
+    content.set_size_request(monolito_ui::QUICK_WIDTH, -1);
     content.add_css_class("quick-settings-content");
 
-    // Quick Action Tiles Grid (2 columns)
     let grid = gtk::Grid::builder()
-        .column_spacing(8)
-        .row_spacing(8)
+        .column_spacing(16)
+        .row_spacing(16)
         .column_homogeneous(true)
         .build();
-
-    // 1. Wi-Fi Tile
-    let wifi_btn = gtk::Button::new();
-    wifi_btn.add_css_class("quick-tile");
-    let wifi_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    let wifi_icon = gtk::Image::from_icon_name("network-wireless-symbolic");
-    wifi_box.append(&wifi_icon);
-    let wifi_labels = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    let wifi_title = gtk::Label::new(Some("Wi-Fi"));
-    wifi_title.set_xalign(0.0);
-    wifi_title.add_css_class("quick-tile-title");
-    let wifi_sub = gtk::Label::new(Some(&gettextrs::gettext("Checking…")));
-    wifi_sub.set_xalign(0.0);
-    wifi_sub.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    wifi_sub.set_max_width_chars(12);
-    wifi_sub.add_css_class("quick-tile-sub");
-    wifi_labels.append(&wifi_title);
-    wifi_labels.append(&wifi_sub);
-    wifi_labels.set_hexpand(true);
-    wifi_box.append(&wifi_labels);
-    wifi_btn.set_child(Some(&wifi_box));
-    let wifi_more = gtk::Button::from_icon_name("go-next-symbolic");
-    wifi_more.add_css_class("quick-tile-more");
-    wifi_more.set_halign(gtk::Align::End);
-    wifi_more.set_valign(gtk::Align::Fill);
-    wifi_more.set_sensitive(false);
+    let (wifi_tile, wifi_btn, wifi_icon, wifi_sub, wifi_more) =
+        radio_tile("Wi-Fi", "network-wireless-symbolic");
     wifi_more.set_tooltip_text(Some(&gettextrs::gettext("Show available networks")));
-    let wifi_overlay = gtk::Overlay::new();
-    wifi_overlay.set_child(Some(&wifi_btn));
-    wifi_overlay.add_overlay(&wifi_more);
-    grid.attach(&wifi_overlay, 0, 0, 1, 1);
-
-    // 2. Bluetooth Tile
-    let bt_btn = gtk::Button::new();
-    bt_btn.add_css_class("quick-tile");
-    let bt_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    let bt_icon = gtk::Image::from_icon_name("bluetooth-active-symbolic");
-    bt_box.append(&bt_icon);
-    let bt_labels = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    let bt_title = gtk::Label::new(Some("Bluetooth"));
-    bt_title.set_xalign(0.0);
-    bt_title.add_css_class("quick-tile-title");
-    let bt_sub = gtk::Label::new(Some(&gettextrs::gettext("Checking…")));
-    bt_sub.set_xalign(0.0);
-    bt_sub.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    bt_sub.set_max_width_chars(12);
-    bt_sub.add_css_class("quick-tile-sub");
-    bt_labels.append(&bt_title);
-    bt_labels.append(&bt_sub);
-    bt_labels.set_hexpand(true);
-    bt_box.append(&bt_labels);
-    bt_btn.set_child(Some(&bt_box));
-    let bt_more = gtk::Button::from_icon_name("go-next-symbolic");
-    bt_more.add_css_class("quick-tile-more");
-    bt_more.set_halign(gtk::Align::End);
-    bt_more.set_valign(gtk::Align::Fill);
-    bt_more.set_sensitive(false);
+    let (bt_tile, bt_btn, _, bt_sub, bt_more) =
+        radio_tile("Bluetooth", "bluetooth-active-symbolic");
     bt_more.set_tooltip_text(Some(&gettextrs::gettext("Show Bluetooth devices")));
-    let bt_overlay = gtk::Overlay::new();
-    bt_overlay.set_child(Some(&bt_btn));
-    bt_overlay.add_overlay(&bt_more);
-    grid.attach(&bt_overlay, 1, 0, 1, 1);
-
-    // 3. Airplane Mode Tile
-    let airplane_btn = gtk::Button::new();
-    airplane_btn.add_css_class("quick-tile");
-    let airplane_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    let airplane_icon = gtk::Image::from_icon_name("airplane-mode-symbolic");
-    airplane_box.append(&airplane_icon);
-    let airplane_labels = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    let airplane_title = gtk::Label::new(Some(&gettextrs::gettext("Airplane mode")));
-    airplane_title.set_xalign(0.0);
-    airplane_title.add_css_class("quick-tile-title");
-    let airplane_sub = gtk::Label::new(Some(&gettextrs::gettext("Off")));
-    airplane_sub.set_xalign(0.0);
-    airplane_sub.add_css_class("quick-tile-sub");
-    airplane_labels.append(&airplane_title);
-    airplane_labels.append(&airplane_sub);
-    airplane_labels.set_hexpand(true);
-    airplane_box.append(&airplane_labels);
-    airplane_btn.set_child(Some(&airplane_box));
-    grid.attach(&airplane_btn, 0, 1, 1, 1);
-
-    // 4. Battery Saver / Power Mode Tile
-    let saver_btn = gtk::Button::new();
-    saver_btn.add_css_class("quick-tile");
-    let saver_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    let saver_icon = gtk::Image::from_icon_name("battery-saver-symbolic");
-    saver_box.append(&saver_icon);
-    let saver_labels = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    let saver_title = gtk::Label::new(Some(&gettextrs::gettext("Battery saver")));
-    saver_title.set_xalign(0.0);
-    saver_title.add_css_class("quick-tile-title");
-    let saver_sub = gtk::Label::new(Some(&gettextrs::gettext("Off")));
-    saver_sub.set_xalign(0.0);
-    saver_sub.add_css_class("quick-tile-sub");
-    saver_labels.append(&saver_title);
-    saver_labels.append(&saver_sub);
-    saver_labels.set_hexpand(true);
-    saver_box.append(&saver_labels);
-    saver_btn.set_child(Some(&saver_box));
-    grid.attach(&saver_btn, 1, 1, 1, 1);
+    let (airplane_tile, airplane_btn, _, airplane_sub, airplane_more) =
+        radio_tile("Airplane mode", "airplane-mode-symbolic");
+    airplane_more.set_visible(false);
+    let (saver_tile, saver_btn, _, saver_sub, saver_more) =
+        radio_tile("Battery saver", "battery-saver-symbolic");
+    saver_more.set_visible(false);
+    grid.attach(&wifi_tile, 0, 0, 1, 1);
+    grid.attach(&bt_tile, 1, 0, 1, 1);
+    grid.attach(&airplane_tile, 0, 1, 1, 1);
+    grid.attach(&saver_tile, 1, 1, 1, 1);
 
     content.append(&grid);
 
@@ -217,6 +130,8 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
     footer.append(&battery_box);
 
     let settings = gtk::Button::from_icon_name("emblem-system-symbolic");
+    settings.set_hexpand(true);
+    settings.set_halign(gtk::Align::End);
     settings.set_tooltip_text(Some(&gettextrs::gettext("System settings")));
     let parent_settings = parent.clone();
     settings.connect_clicked(move |_| system::open_settings(&parent_settings));
@@ -873,6 +788,10 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
                     }
                 } else {
                     ws.set_text(&gettextrs::gettext("Unavailable"));
+                    as_lbl.set_text(&gettextrs::gettext("Unavailable"));
+                    wb.set_sensitive(false);
+                    wm.set_sensitive(false);
+                    ab.set_sensitive(false);
                 }
             });
 
@@ -908,6 +827,10 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
                         bb.remove_css_class("active");
                         bs.set_text(&gettextrs::gettext("Off"));
                     }
+                } else {
+                    bs.set_text(&gettextrs::gettext("Unavailable"));
+                    bb.set_sensitive(false);
+                    bm.set_sensitive(false);
                 }
             });
 
@@ -969,4 +892,35 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
     });
 
     popup
+}
+
+fn radio_tile(
+    title: &str,
+    icon: &str,
+) -> (gtk::Box, gtk::Button, gtk::Image, gtk::Label, gtk::Button) {
+    let tile = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    let controls = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    let button = gtk::Button::new();
+    button.add_css_class("quick-tile");
+    button.set_hexpand(true);
+    button.set_tooltip_text(Some(&gettextrs::gettext(title)));
+    let image = gtk::Image::from_icon_name(icon);
+    image.set_pixel_size(20);
+    button.set_child(Some(&image));
+    let more = gtk::Button::from_icon_name("go-next-symbolic");
+    more.add_css_class("quick-tile");
+    more.add_css_class("quick-tile-more");
+    more.set_sensitive(false);
+    controls.append(&button);
+    controls.append(&more);
+    tile.append(&controls);
+    let label = gtk::Label::new(Some(&gettextrs::gettext(title)));
+    label.add_css_class("quick-tile-title");
+    tile.append(&label);
+    let status = gtk::Label::new(Some(&gettextrs::gettext("Checking…")));
+    status.add_css_class("quick-tile-sub");
+    status.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    status.set_max_width_chars(18);
+    tile.append(&status);
+    (tile, button, image, status, more)
 }

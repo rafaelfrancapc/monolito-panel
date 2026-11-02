@@ -1,6 +1,7 @@
 pub mod applications;
 pub mod audio;
 pub mod bluetooth;
+pub mod icons;
 pub mod network;
 pub mod power;
 pub mod recent;

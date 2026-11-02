@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Start one user service in an X11 desktop session and restore native panels on exit.
+set -euo pipefail
+
+case "${1:-}" in
+  start)
+    [[ ${XDG_SESSION_TYPE:-x11} == x11 && -n ${DISPLAY:-} ]] || exit 0
+    systemctl --user import-environment DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE DBUS_SESSION_BUS_ADDRESS
+    exec systemctl --user start monolito-panel.service
+    ;;
+  run)
+    [[ -n ${DISPLAY:-} ]] || { echo 'X11 DISPLAY is required' >&2; exit 1; }
+    desktop=${XDG_CURRENT_DESKTOP:-}
+    case ":$desktop:" in
+      *:XFCE:*|*:Xfce:*) desktop=XFCE ;;
+      *:X-Cinnamon:*|*:Cinnamon:*) desktop=Cinnamon ;;
+      *) echo 'XFCE or Cinnamon X11 session required' >&2; exit 1 ;;
+    esac
+    native_stopped=0
+    cinnamon_original=
+    restore_native() {
+      if [[ $desktop == XFCE && $native_stopped == 1 ]]; then
+        xfce4-panel --restart >/dev/null 2>&1 || true
+      elif [[ $desktop == Cinnamon && -n $cinnamon_original ]]; then
+        if [[ $(gsettings get org.cinnamon panels-enabled 2>/dev/null) == '[]' ]]; then
+          gsettings set org.cinnamon panels-enabled "$cinnamon_original" || true
+        fi
+      fi
+    }
+    trap restore_native EXIT
+    if [[ $desktop == XFCE ]]; then
+      if pgrep -u "$(id -u)" -x xfce4-panel >/dev/null; then
+        xfce4-panel --quit
+        native_stopped=1
+      fi
+    else
+      cinnamon_original=$(gsettings get org.cinnamon panels-enabled)
+      gsettings set org.cinnamon panels-enabled '[]'
+    fi
+    "${MONOLITO_PANEL_BIN:-/usr/bin/monolito-panel}" &
+    panel_pid=$!
+    wait "$panel_pid"
+    ;;
+  *) echo 'Usage: session {start|run}' >&2; exit 2 ;;
+esac

@@ -35,6 +35,54 @@ pub struct WindowInfo {
     pub title: String,
     pub class: String,
     pub active: bool,
+    pub icon: Option<WindowIcon>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WindowIcon {
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Vec<u8>,
+}
+
+impl WindowIcon {
+    /// EWMH packs dimensions followed by ARGB pixels; never trust client sizes.
+    pub fn parse(values: &[u32]) -> Option<Self> {
+        let mut rest = values;
+        let mut best: Option<(u32, u32, &[u32])> = None;
+        while rest.len() >= 2 {
+            let (width, height) = (rest[0], rest[1]);
+            let Some(end) = (width as usize)
+                .checked_mul(height as usize)
+                .and_then(|n| n.checked_add(2))
+            else {
+                break;
+            };
+            let Some(pixels) = rest.get(2..end) else {
+                break;
+            };
+            if width > 0 && height > 0 && width <= 256 && height <= 256 {
+                let score = width.abs_diff(48) + height.abs_diff(48);
+                if best.is_none_or(|(w, h, _)| score < w.abs_diff(48) + h.abs_diff(48)) {
+                    best = Some((width, height, pixels));
+                }
+            }
+            rest = &rest[end..];
+        }
+        let (width, height, pixels) = best?;
+        let rgba = pixels
+            .iter()
+            .flat_map(|pixel| {
+                let [a, r, g, b] = pixel.to_be_bytes();
+                [r, g, b, a]
+            })
+            .collect();
+        Some(Self {
+            width,
+            height,
+            rgba,
+        })
+    }
 }
 #[derive(Debug)]
 pub enum DesktopEvent {
@@ -64,6 +112,17 @@ pub trait DesktopShellBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn window_icons_validate_dimensions_and_decode_argb() {
+        assert_eq!(
+            WindowIcon::parse(&[1, 1, 0x80402010]).unwrap().rgba,
+            [64, 32, 16, 128]
+        );
+        assert!(WindowIcon::parse(&[100, 100, 0]).is_none());
+        assert!(WindowIcon::parse(&[u32::MAX, u32::MAX]).is_none());
+        assert!(WindowIcon::parse(&[0, 0]).is_none());
+        assert!(WindowIcon::parse(&[1, 1, 0xff123456, 256, 256]).is_some());
+    }
     #[test]
     fn strut_uses_root_coordinates_and_inclusive_span() {
         let g = Geometry {

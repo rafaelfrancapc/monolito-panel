@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Desktop Panel
+Comment=Start menu, taskbar and quick settings
+Exec=/usr/libexec/monolito-panel/session start
+OnlyShowIn=XFCE;X-Cinnamon;Cinnamon;
+X-XFCE-Autostart-Delay=2
+X-GNOME-Autostart-Delay=2
+NoDisplay=true

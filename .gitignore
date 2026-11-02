@@ -1,4 +1,5 @@
 /target/
+/dist/
 /resources/locale/
 *.log
 __pycache__/

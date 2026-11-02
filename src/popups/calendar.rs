@@ -2,7 +2,7 @@ use gtk::prelude::*;
 
 pub fn build() -> gtk::Popover {
     let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
-    content.set_size_request(360, -1);
+    content.set_size_request(monolito_ui::QUICK_WIDTH, -1);
     content.add_css_class("calendar-popup-content");
 
     // Header with current localized day/month

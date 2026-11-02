@@ -19,7 +19,7 @@ x11rb::atom_manager! {
         _NET_CLIENT_LIST, _NET_ACTIVE_WINDOW, _NET_CLOSE_WINDOW, _NET_WM_NAME, UTF8_STRING,
         _NET_WM_STATE, _NET_WM_STATE_SKIP_TASKBAR, _NET_WM_STATE_STICKY,
         _NET_WM_DESKTOP, _NET_CURRENT_DESKTOP, _NET_WM_STATE_ABOVE,
-        WM_CLASS, WM_NAME, WM_CHANGE_STATE,
+        WM_CLASS, WM_NAME, WM_CHANGE_STATE, _NET_WM_ICON,
     }
 }
 
@@ -335,6 +335,23 @@ impl Worker {
                 title: String::from_utf8_lossy(&title).into_owned(),
                 class,
                 active: active == Some(id),
+                icon: self
+                    .conn
+                    .get_property(
+                        false,
+                        id,
+                        self.atoms._NET_WM_ICON,
+                        AtomEnum::CARDINAL,
+                        0,
+                        262144,
+                    )
+                    .ok()
+                    .and_then(|cookie| cookie.reply().ok())
+                    .and_then(|reply| {
+                        reply
+                            .value32()
+                            .and_then(|values| WindowIcon::parse(&values.collect::<Vec<_>>()))
+                    }),
             });
         }
         self.watched.retain(|id| clients.contains(id));
