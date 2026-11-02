@@ -10,23 +10,12 @@ pub struct BluetoothDevice {
     pub icon_name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct BluetoothStatus {
     pub available: bool,
     pub powered: bool,
     pub adapter_path: Option<String>,
     pub devices: Vec<BluetoothDevice>,
-}
-
-impl Default for BluetoothStatus {
-    fn default() -> Self {
-        Self {
-            available: false,
-            powered: false,
-            adapter_path: None,
-            devices: Vec::new(),
-        }
-    }
 }
 
 fn variant_str(v: &glib::Variant) -> Option<String> {
@@ -57,12 +46,13 @@ pub async fn get_status() -> Result<BluetoothStatus, String> {
         .await
         .map_err(|e| e.to_string())?;
 
-    let Some(managed_objects) = result.child_value(0) else {
+    if result.n_children() == 0 {
         return Ok(BluetoothStatus {
             available: true,
             ..Default::default()
         });
-    };
+    }
+    let managed_objects = result.child_value(0);
 
     let mut powered = false;
     let mut adapter_path = None;
@@ -70,18 +60,14 @@ pub async fn get_status() -> Result<BluetoothStatus, String> {
 
     // managed_objects is a{oa{sa{sv}}}
     for (obj_path_val, ifaces_val) in managed_objects.iter().filter_map(|entry| {
-        let key = entry.child_value(0)?;
-        let val = entry.child_value(1)?;
-        Some((key, val))
+        (entry.n_children() >= 2).then(|| (entry.child_value(0), entry.child_value(1)))
     }) {
         let Some(path) = variant_str(&obj_path_val) else {
             continue;
         };
 
         for (iface_name_val, props_val) in ifaces_val.iter().filter_map(|entry| {
-            let key = entry.child_value(0)?;
-            let val = entry.child_value(1)?;
-            Some((key, val))
+            (entry.n_children() >= 2).then(|| (entry.child_value(0), entry.child_value(1)))
         }) {
             let Some(iface_name) = variant_str(&iface_name_val) else {
                 continue;
@@ -91,16 +77,13 @@ pub async fn get_status() -> Result<BluetoothStatus, String> {
                 if adapter_path.is_none() {
                     adapter_path = Some(path.clone());
                 }
-                for (prop_name_val, prop_val_wrapper) in props_val.iter().filter_map(|e| {
-                    let k = e.child_value(0)?;
-                    let v = e.child_value(1)?;
-                    Some((k, v))
+                for (prop_name_val, prop_val_wrapper) in props_val.iter().filter_map(|entry| {
+                    (entry.n_children() >= 2).then(|| (entry.child_value(0), entry.child_value(1)))
                 }) {
                     if let Some(prop_name) = variant_str(&prop_name_val) {
-                        if prop_name == "Powered" {
-                            if let Some(val) = prop_val_wrapper.child_value(0) {
-                                powered = val.get::<bool>().unwrap_or(false);
-                            }
+                        if prop_name == "Powered" && prop_val_wrapper.n_children() > 0 {
+                            let val = prop_val_wrapper.child_value(0);
+                            powered = val.get::<bool>().unwrap_or(false);
                         }
                     }
                 }
@@ -110,13 +93,12 @@ pub async fn get_status() -> Result<BluetoothStatus, String> {
                 let mut paired = false;
                 let mut icon_hint = String::new();
 
-                for (prop_name_val, prop_val_wrapper) in props_val.iter().filter_map(|e| {
-                    let k = e.child_value(0)?;
-                    let v = e.child_value(1)?;
-                    Some((k, v))
+                for (prop_name_val, prop_val_wrapper) in props_val.iter().filter_map(|entry| {
+                    (entry.n_children() >= 2).then(|| (entry.child_value(0), entry.child_value(1)))
                 }) {
                     if let Some(prop_name) = variant_str(&prop_name_val) {
-                        if let Some(val) = prop_val_wrapper.child_value(0) {
+                        if prop_val_wrapper.n_children() > 0 {
+                            let val = prop_val_wrapper.child_value(0);
                             match prop_name.as_str() {
                                 "Alias" | "Name" if name.is_empty() => {
                                     if let Some(s) = variant_str(&val) {
@@ -184,12 +166,7 @@ pub async fn set_powered(adapter_path: &str, powered: bool) -> Result<(), String
     .await
     .map_err(|e| e.to_string())?;
 
-    let param = (
-        "org.bluez.Adapter1",
-        "Powered",
-        powered.to_variant(),
-    )
-        .to_variant();
+    let param = ("org.bluez.Adapter1", "Powered", powered.to_variant()).to_variant();
 
     proxy
         .call_future(

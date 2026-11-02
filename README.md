@@ -1,12 +1,14 @@
 # Monolito Panel
 
 Painel de shell **Rust/GTK4 para XFCE/X11**, independente do `xfce4-panel`.
-Primeira entrega incremental: barra inferior, Iniciar à esquerda, aplicativos e
-relógio à direita, com popups GTK nativos. Não é uma interface web.
+Oferece barra inferior, Iniciar e aplicativos centralizados por padrão, bandeja
+e relógio à direita, com popups GTK nativos. Não é uma interface web.
 
 ## Compilar no Ubuntu Server ou WSL
 
-Referência: **Ubuntu 24.04 LTS**, GTK ≥ 4.12 e Rust estável via rustup.
+Referência: **Linux Mint 22.3 / Ubuntu 24.04 LTS**, GTK ≥ 4.12 e Rust estável via
+rustup. O Mint 22.3 usa a base Ubuntu 24.04 e pode executar o painel em uma sessão
+XFCE/X11.
 Ubuntu 22.04 fornece GTK antigo demais; use uma VM/distribuição WSL 24.04.
 
 ```bash
@@ -66,9 +68,9 @@ Se você tiver encerrado manualmente o painel original em um teste, restaure com
 | Área | Implementado | Limitações / próximo marco |
 |---|---|---|
 | Shell (A) | GTK4/X11, dock sem decoração, 48 px, struts, relógio, claro/escuro | Seleção de um monitor; barras em vários monitores e auto-ocultação pendentes |
-| Iniciar (B parcial) | Popover à esquerda, busca de nomes localizados XDG, launch por GIO, favoritos fixar/desafixar persistidos | Reordenação por UI e ações de sessão pendentes; ordem configurável no TOML |
-| Taskbar (C experimental) | Eventos EWMH, janela ativa, workspaces, ativação/minimização, agrupamento por metadados e lista de janelas | Sem miniaturas, urgência, fechamento/context menu completo ou ícones `_NET_WM_ICON`; apps não identificados usam ícone genérico |
-| Quick Settings (D parcial) | Popup à direita, leitura NetworkManager e toggle Wi-Fi, volume/mudo reais por `wpctl`, bateria UPower se presente | Atualiza ao abrir ou após ação local; não acompanha mudanças externas continuamente; sem SSID/lista de redes, seleção de saída, Bluetooth, brilho ou perfis de energia |
+| Iniciar (B) | Busca XDG, lançamento por GIO, fixar/desafixar persistente, arquivos recentes, bloqueio, suspensão, reinício e desligamento | Reordenação por arraste pendente; ordem configurável no TOML |
+| Taskbar (C) | Eventos EWMH, janela ativa, workspaces, ativação/minimização, agrupamento por metadados, fechamento em grupos e lista de janelas | Sem miniaturas, urgência, menu de contexto completo ou ícones `_NET_WM_ICON`; apps não identificados usam ícone genérico |
+| Quick Settings (D) | NetworkManager com Wi-Fi, redes e modo avião; BlueZ; volumes e dispositivos PipeWire; brilho; UPower; perfis de energia | Atualiza ao abrir ou após ação local; não acompanha toda mudança externa continuamente; uma rede protegida nova pode exigir configuração prévia pelo gerenciador do sistema |
 | Calendário (E parcial) | Calendário GTK e aviso explícito sobre histórico | Bandeja SNI, histórico e ações de notificações pendentes; não toma o nome `org.freedesktop.Notifications` |
 
 Os controles ficam indisponíveis quando os serviços necessários não existem.
@@ -88,6 +90,7 @@ Arquivos opcionais sob `$XDG_CONFIG_HOME/monolito/` ou `~/.config/monolito/`:
 version = 1
 height = 48
 # monitor = 0      # índice RandR; omitido = primário ou primeiro disponível
+alignment = "center" # use "left" para alinhar Iniciar e aplicativos à esquerda
 pinned = ["org.xfce.Thunar.desktop", "firefox.desktop"]
 ```
 
@@ -96,15 +99,14 @@ pinned = ["org.xfce.Thunar.desktop", "firefox.desktop"]
 ```toml
 version = 1
 theme = "dark"    # light ou dark
-accent = "#49b9ed"
+accent = "#0078d4"
 animations = true
 ```
 
-As preferências são carregadas ao iniciar. Não há monitoramento de arquivos
-nem promessa de compatibilidade com o Settings existente, que não foi fornecido.
-`monolito-ui` reúne tokens/CSS e o modelo de aparência, sem depender do processo
-Settings. O acesso ao Settings usa o desktop ID `org.monolito.Settings.desktop`;
-se não estiver instalado, aparece uma mensagem, sem fallback arbitrário.
+As preferências são carregadas ao iniciar e `monolito-ui` reúne tokens/CSS e o
+modelo de aparência. Não há monitoramento de arquivos. O botão de configurações
+abre o gerenciador presente na sessão, priorizando XFCE e Cinnamon e usando os
+IDs XDG conhecidos de GNOME, MATE e KDE como alternativas.
 
 Os nomes de apps vêm de GIO/DesktopAppInfo: diretórios XDG, localização,
 `Hidden`/`NoDisplay`/restrições de desktop e lançamento de `.desktop` ficam a
@@ -143,9 +145,8 @@ Texto fonte em inglês, gettext com catálogo inicial `po/pt_BR.po`.
 `./scripts/translations.sh` gera catálogos locais (requer `gettext`).
 Execute com `LANGUAGE=pt_BR cargo run -- --dev` numa locale UTF-8.
 `MONOLITO_LOCALE_DIR` permite apontar para catálogos instalados.
-O estado de Wi-Fi usa por enquanto rótulos técnicos `on/off`.
-
-CSS próprio, Inter e Montserrat Alternates com fallback. O tema base Adwaita
+CSS próprio, Segoe UI Variable quando disponível, Inter e fontes do sistema como
+fallback. O tema base Adwaita
 é selecionado apenas neste processo para evitar herança acidental de temas
 antigos. Ícones simbólicos livres do tema instalado; nenhum recurso Microsoft.
 Controles GTK fornecem foco, tooltips e navegação por teclado; popups fecham por

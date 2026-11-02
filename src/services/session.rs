@@ -1,6 +1,6 @@
 //! Session and power management via systemd-logind and XFCE fallbacks.
 use super::system;
-use gtk::{gio, glib, prelude::*};
+use gtk::{gio, prelude::*};
 
 async fn call_logind_method(method: &str) -> Result<(), String> {
     let proxy = match gio::DBusProxy::for_bus_future(
@@ -70,4 +70,3 @@ pub async fn lock_screen() -> Result<(), String> {
     }
     Err("No lock screen command succeeded".into())
 }
-

@@ -17,7 +17,7 @@ fn main() -> glib::ExitCode {
     let _ = gettextrs::bindtextdomain("monolito-panel", locale);
     let _ = gettextrs::textdomain("monolito-panel");
     if std::env::args().any(|a| a == "--help" || a == "-h") {
-        println!("Monolito Panel\n  --dev           Do not reserve desktop space\n  --theme=light   Override appearance for this run\n  --theme=dark\nX11 only. Config: $XDG_CONFIG_HOME/monolito/{{panel,appearance}}.toml");
+        println!("Desktop Panel\n  --dev           Do not reserve desktop space\n  --theme=light   Override appearance for this run\n  --theme=dark\nX11 only. Config: $XDG_CONFIG_HOME/monolito/{{panel,appearance}}.toml");
         return glib::ExitCode::SUCCESS;
     }
     // A dock needs EWMH; opening an ordinary Wayland window is not support.

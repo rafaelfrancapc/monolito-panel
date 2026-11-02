@@ -9,9 +9,7 @@ pub struct RecentItem {
 }
 
 pub fn get_recent_files(limit: usize) -> Vec<RecentItem> {
-    let Some(manager) = gtk::RecentManager::default() else {
-        return Vec::new();
-    };
+    let manager = gtk::RecentManager::default();
 
     let mut items: Vec<_> = manager
         .items()
@@ -21,8 +19,8 @@ pub fn get_recent_files(limit: usize) -> Vec<RecentItem> {
 
     // Sort by modified time descending (newest first)
     items.sort_by(|a, b| {
-        let ma = a.modified().map(|t| t.to_unix()).unwrap_or(0);
-        let mb = b.modified().map(|t| t.to_unix()).unwrap_or(0);
+        let ma = a.modified().to_unix();
+        let mb = b.modified().to_unix();
         mb.cmp(&ma)
     });
 
@@ -30,16 +28,7 @@ pub fn get_recent_files(limit: usize) -> Vec<RecentItem> {
         .into_iter()
         .take(limit)
         .map(|info| {
-            let name = info
-                .display_name()
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| {
-                    info.uri()
-                        .split('/')
-                        .last()
-                        .unwrap_or("document")
-                        .to_string()
-                });
+            let name = info.display_name().to_string();
 
             let uri = info.uri().to_string();
 
@@ -69,4 +58,3 @@ pub fn open_recent_item(uri: &str, parent: &gtk::Window) {
         }
     });
 }
-

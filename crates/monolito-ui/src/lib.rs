@@ -38,7 +38,7 @@ impl Appearance {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 return Ok(Self {
                     version: 1,
-                    accent: "#49b9ed".into(),
+                    accent: "#0078d4".into(),
                     animations: true,
                     ..Self::default()
                 });
@@ -59,7 +59,7 @@ impl Appearance {
         let accent = if valid_accent(&self.accent) {
             &self.accent
         } else {
-            "#49b9ed"
+            "#0078d4"
         };
         format!("@define-color monolito_accent {accent};")
     }

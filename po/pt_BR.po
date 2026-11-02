@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: monolito-panel 0.1\n"
 "Language: pt_BR\n"
 "PO-Revision-Date: 2026-11-01 18:30-0300\n"
-"Last-Translator: Monolito contributors\n"
+"Last-Translator: Project contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -90,8 +90,11 @@ msgstr "Histórico de notificações indisponível. O serviço do XFCE continua 
 msgid "Operation unavailable"
 msgstr "Operação indisponível"
 
-msgid "Monolito Settings is not installed (org.monolito.Settings.desktop)."
-msgstr "Monolito Settings não está instalado (org.monolito.Settings.desktop)."
+msgid "System settings"
+msgstr "Configurações do sistema"
+
+msgid "No supported system settings application was found."
+msgstr "Nenhum aplicativo de configurações do sistema compatível foi encontrado."
 
 msgid "Checking…"
 msgstr "Verificando…"
@@ -105,6 +108,9 @@ msgstr "Desligado"
 msgid "Connected"
 msgstr "Conectado"
 
+msgid "Disconnected"
+msgstr "Desconectado"
+
 msgid "Paired"
 msgstr "Pareado"
 
@@ -116,6 +122,18 @@ msgstr "Modo avião"
 
 msgid "Battery saver"
 msgstr "Economizador de bateria"
+
+msgid "Show available networks"
+msgstr "Mostrar redes disponíveis"
+
+msgid "Show Bluetooth devices"
+msgstr "Mostrar dispositivos Bluetooth"
+
+msgid "No paired devices found."
+msgstr "Nenhum dispositivo pareado encontrado."
+
+msgid "No Wi-Fi networks found."
+msgstr "Nenhuma rede Wi-Fi encontrada."
 
 msgid "Toggle mute"
 msgstr "Ativar ou desativar mudo"
@@ -146,6 +164,9 @@ msgstr "Rede: conectada"
 
 msgid "Network: limited connectivity"
 msgstr "Rede: conectividade limitada"
+
+msgid "Network: sign-in required"
+msgstr "Rede: autenticação necessária"
 
 msgid "Network: disconnected"
 msgstr "Rede: desconectada"

@@ -67,7 +67,7 @@ pub fn activate(application: &gtk::Application) {
 
     let window = gtk::ApplicationWindow::builder()
         .application(application)
-        .title("Monolito Panel")
+        .title("Desktop Panel")
         .decorated(false)
         .resizable(false)
         .default_height(i32::from(config.height))
@@ -90,7 +90,7 @@ pub fn activate(application: &gtk::Application) {
         .tooltip_text(gettextrs::gettext("Start"))
         .build();
     start.add_css_class("start-button");
-    let start_icon = gtk::Image::from_icon_name("windows-start-symbolic");
+    let start_icon = gtk::Image::from_icon_name("start-symbolic");
     start_icon.set_pixel_size(22);
     start.set_child(Some(&start_icon));
 
@@ -110,6 +110,8 @@ pub fn activate(application: &gtk::Application) {
     let tasks_scroll = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::External)
         .vscrollbar_policy(gtk::PolicyType::Never)
+        .propagate_natural_width(true)
+        .max_content_width(800)
         .child(&taskbar)
         .build();
     center_box.append(&tasks_scroll);
@@ -167,7 +169,11 @@ pub fn activate(application: &gtk::Application) {
     // 2-second tray status polling
     {
         let weak_window = window.downgrade();
-        let (t_net, t_vol, t_bat) = (tray_net_icon.clone(), tray_vol_icon.clone(), tray_bat_icon.clone());
+        let (t_net, t_vol, t_bat) = (
+            tray_net_icon.clone(),
+            tray_vol_icon.clone(),
+            tray_bat_icon.clone(),
+        );
         glib::timeout_add_seconds_local(2, move || {
             if weak_window.upgrade().is_none() {
                 return glib::ControlFlow::Break;
@@ -175,15 +181,18 @@ pub fn activate(application: &gtk::Application) {
             let (net_i, vol_i, bat_i) = (t_net.clone(), t_vol.clone(), t_bat.clone());
             glib::MainContext::default().spawn_local(async move {
                 if let Ok(status) = network::get_status().await {
-                    net_i.set_icon_name(network::network_status_icon(&status));
+                    net_i.set_icon_name(Some(network::network_status_icon(&status)));
+                    net_i.set_tooltip_text(Some(&gettextrs::gettext(
+                        network::network_status_message(&status),
+                    )));
                 }
                 if let Ok(vol) = audio::get_master_volume().await {
-                    vol_i.set_icon_name(audio::volume_icon(vol.value, vol.muted));
+                    vol_i.set_icon_name(Some(audio::volume_icon(vol.value, vol.muted)));
                 }
                 if let Ok(bat_opt) = power::get_battery().await {
                     if let Some(bat) = bat_opt {
                         bat_i.set_visible(true);
-                        bat_i.set_icon_name(power::battery_icon(bat.percentage, &bat.state));
+                        bat_i.set_icon_name(Some(power::battery_icon(bat.percentage, &bat.state)));
                     } else {
                         bat_i.set_visible(false);
                     }

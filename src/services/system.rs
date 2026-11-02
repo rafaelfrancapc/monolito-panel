@@ -29,17 +29,26 @@ pub async fn command(args: &[&str]) -> Result<String, String> {
 }
 
 pub fn open_settings(parent: &gtk::Window) {
-    // Public integration contract; do not depend on the Settings process being alive.
-    if gio::DesktopAppInfo::new("org.monolito.Settings.desktop").is_some() {
-        super::applications::launch("org.monolito.Settings.desktop", parent);
-    } else {
-        show_error(
-            parent,
-            &gettextrs::gettext(
-                "Monolito Settings is not installed (org.monolito.Settings.desktop).",
-            ),
-        );
+    const SETTINGS_APPS: &[&str] = &[
+        "xfce-settings-manager.desktop",
+        "xfce4-settings-manager.desktop",
+        "cinnamon-settings.desktop",
+        "org.gnome.Settings.desktop",
+        "matecc.desktop",
+        "systemsettings.desktop",
+    ];
+
+    for desktop_id in SETTINGS_APPS {
+        if gio::DesktopAppInfo::new(desktop_id).is_some() {
+            super::applications::launch(desktop_id, parent);
+            return;
+        }
     }
+
+    show_error(
+        parent,
+        &gettextrs::gettext("No supported system settings application was found."),
+    );
 }
 
 pub async fn proxy(name: &str, path: &str, interface: &str) -> Result<gio::DBusProxy, glib::Error> {

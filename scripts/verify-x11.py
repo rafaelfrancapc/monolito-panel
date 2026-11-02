@@ -45,7 +45,47 @@ def visible_popups():
     return popups
 
 
-wid = wait_for(lambda: run('xdotool', 'search', '--onlyvisible', '--name', '^Monolito Panel$').splitlines()[0], 'Panel did not map')
+def open_start(hint=None):
+    positions = range(max(0, hint - 80), min(1080, hint + 80), 4) if hint else range(160, 920, 8)
+    for x in positions:
+        run('xdotool', 'mousemove', str(x), '776', 'click', '1')
+        time.sleep(0.06)
+        popups = visible_popups()
+        for popup in popups:
+            if geometry(popup)[2] >= 500:
+                return x, popup
+        if popups:
+            run('xdotool', 'key', 'Escape')
+    raise AssertionError('Start popup did not become visible')
+
+
+def minimize_from_taskbar(client, start_x):
+    del start_x
+    for x in range(8, 1080, 8):
+        run('xdotool', 'mousemove', str(x), '776', 'click', '1')
+        time.sleep(0.06)
+        if 'IsUnMapped' in run('xwininfo', '-id', client):
+            return x
+        if visible_popups():
+            run('xdotool', 'key', 'Escape')
+    raise AssertionError('Taskbar did not minimize the active client')
+
+
+def open_quick_settings():
+    for x in range(980, 1240, 4):
+        run('xdotool', 'mousemove', str(x), '776', 'click', '1')
+        time.sleep(0.06)
+        popups = visible_popups()
+        for popup in popups:
+            width = geometry(popup)[2]
+            if 400 <= width < 500:
+                return popup
+        if popups:
+            run('xdotool', 'key', 'Escape')
+    raise AssertionError('Quick settings popup did not become visible')
+
+
+wid = wait_for(lambda: run('xdotool', 'search', '--onlyvisible', '--name', '^Desktop Panel$').splitlines()[0], 'Panel did not map')
 wait_for(lambda: geometry(wid) == (0, 752, 1280, 48), 'Dock geometry differs from the requested bottom strip')
 assert '_NET_WM_WINDOW_TYPE_DOCK' in prop(wid, '_NET_WM_WINDOW_TYPE')
 strut = prop(wid, '_NET_WM_STRUT_PARTIAL').split(' = ')[1]
@@ -56,15 +96,13 @@ if '--dev' not in sys.argv:
     workarea = run('xprop', '-root', '_NET_WORKAREA')
     assert '0, 0, 1280, 752' in workarea, workarea
     # Start popup, then dismiss using the keyboard.
-    run('xdotool', 'mousemove', '28', '776', 'click', '1')
-    popup = wait_for(visible_popups, 'Start popup did not become visible')[0]
+    start_x, popup = open_start()
     x, y, width, height = geometry(popup)
-    assert 0 <= x < 100 and y + height <= 752 and width >= 500, (x, y, width, height)
+    assert 0 <= x and x + width <= 1280 and y + height <= 752 and width >= 500, (x, y, width, height)
     run('xdotool', 'key', 'Escape')
     wait_for(lambda: not visible_popups(), 'Escape did not close Start')
     # Search an actual XDG desktop entry and launch it using the keyboard.
-    run('xdotool', 'mousemove', '28', '776', 'click', '1')
-    wait_for(visible_popups, 'Start did not reopen')
+    start_x, _ = open_start(start_x)
     run('xdotool', 'type', '--clearmodifiers', 'Monolito Smoke Client')
     time.sleep(0.4)  # GtkSearchEntry's documented search delay.
     run('xdotool', 'key', 'Return')
@@ -72,15 +110,16 @@ if '--dev' not in sys.argv:
     wait_for(lambda: not visible_popups(), 'Start did not close after launch')
     wait_for(lambda: hex(int(client)) in run('xprop', '-root', '_NET_ACTIVE_WINDOW'), 'Launched client did not become active')
     time.sleep(0.2)  # Allow the event worker to publish the active-window change.
-    run('xdotool', 'mousemove', '75', '776', 'click', '1')
-    wait_for(lambda: 'IsUnMapped' in run('xwininfo', '-id', client), 'Taskbar did not minimize the active client')
+    start_x, _ = open_start(start_x)
+    run('xdotool', 'key', 'Escape')
+    wait_for(lambda: not visible_popups(), 'Escape did not close Start')
+    task_x = minimize_from_taskbar(client, start_x)
     time.sleep(0.6)  # Separate two user clicks beyond GTK's double-click interval.
-    run('xdotool', 'click', '1')
+    run('xdotool', 'mousemove', str(task_x), '776', 'click', '1')
     wait_for(lambda: 'IsViewable' in run('xwininfo', '-id', client), 'Taskbar did not restore the client')
     run('xdotool', 'windowclose', client)
     # Quick settings is immediately left of the clock.
-    run('xdotool', 'mousemove', '1130', '776', 'click', '1')
-    popup = wait_for(visible_popups, 'Quick settings popup did not become visible')[0]
+    popup = open_quick_settings()
     x, y, width, height = geometry(popup)
     assert x > 700 and x + width <= 1280 and y + height <= 752, (x, y, width, height)
     run('xdotool', 'key', 'Escape')

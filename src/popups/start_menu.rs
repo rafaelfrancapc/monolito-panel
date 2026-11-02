@@ -21,7 +21,9 @@ pub fn build(
     // Search bar at the top (Windows 11 style)
     let search = gtk::SearchEntry::builder()
         .placeholder_text(gettextrs::gettext("Type here to search"))
-        .tooltip_text(gettextrs::gettext("Search installed applications and files"))
+        .tooltip_text(gettextrs::gettext(
+            "Search installed applications and files",
+        ))
         .build();
     search.add_css_class("start-search-entry");
     content.append(&search);
@@ -96,7 +98,7 @@ pub fn build(
     footer.append(&user_box);
 
     let settings = gtk::Button::from_icon_name("emblem-system-symbolic");
-    settings.set_tooltip_text(Some("Monolito Settings"));
+    settings.set_tooltip_text(Some(&gettextrs::gettext("System settings")));
     let window_for_settings = parent.clone();
     settings.connect_clicked(move |_| system::open_settings(&window_for_settings));
     footer.append(&settings);
@@ -369,7 +371,8 @@ pub fn build(
                     btn.set_child(Some(&item_box));
                     btn.set_tooltip_text(Some(&item.uri));
 
-                    let (uri, item_parent, item_popup) = (item.uri.clone(), parent.clone(), popup.clone());
+                    let (uri, item_parent, item_popup) =
+                        (item.uri.clone(), parent.clone(), popup.clone());
                     btn.connect_clicked(move |_| {
                         item_popup.popdown();
                         recent::open_recent_item(&uri, &item_parent);

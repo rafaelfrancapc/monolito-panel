@@ -1,5 +1,5 @@
 //! NetworkManager D-Bus client integration.
-use gtk::{gio, glib, prelude::*};
+use gtk::{gio, prelude::*};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConnectivityState {
@@ -13,10 +13,10 @@ pub enum ConnectivityState {
 impl ConnectivityState {
     pub fn from_u32(state: u32) -> Self {
         match state {
-            4 => ConnectivityState::Full,     // NM_CONNECTIVITY_FULL
-            3 => ConnectivityState::Limited,  // NM_CONNECTIVITY_LIMITED
-            2 => ConnectivityState::Portal,   // NM_CONNECTIVITY_PORTAL
-            1 => ConnectivityState::None,     // NM_CONNECTIVITY_NONE
+            4 => ConnectivityState::Full,    // NM_CONNECTIVITY_FULL
+            3 => ConnectivityState::Limited, // NM_CONNECTIVITY_LIMITED
+            2 => ConnectivityState::Portal,  // NM_CONNECTIVITY_PORTAL
+            1 => ConnectivityState::None,    // NM_CONNECTIVITY_NONE
             _ => ConnectivityState::Unknown,
         }
     }
@@ -174,7 +174,7 @@ pub async fn set_airplane_mode(enabled: bool) -> Result<(), String> {
     )
         .to_variant();
 
-    let _ = proxy
+    let wifi_result = proxy
         .call_future(
             "org.freedesktop.DBus.Properties.Set",
             Some(&p_wifi),
@@ -183,7 +183,7 @@ pub async fn set_airplane_mode(enabled: bool) -> Result<(), String> {
         )
         .await;
 
-    let _ = proxy
+    let wwan_result = proxy
         .call_future(
             "org.freedesktop.DBus.Properties.Set",
             Some(&p_wwan),
@@ -192,20 +192,22 @@ pub async fn set_airplane_mode(enabled: bool) -> Result<(), String> {
         )
         .await;
 
+    if wifi_result.is_err() && wwan_result.is_err() {
+        return Err("NetworkManager did not accept the airplane mode change".into());
+    }
     Ok(())
 }
 
-async fn list_wifi_networks_internal(
-    proxy: &gio::DBusProxy,
-) -> Result<Vec<WifiNetwork>, String> {
+async fn list_wifi_networks_internal(proxy: &gio::DBusProxy) -> Result<Vec<WifiNetwork>, String> {
     let devices_res = proxy
         .call_future("GetDevices", None, gio::DBusCallFlags::NONE, 5_000)
         .await
         .map_err(|e| e.to_string())?;
 
-    let Some(child) = devices_res.child_value(0) else {
+    if devices_res.n_children() == 0 {
         return Ok(vec![]);
-    };
+    }
+    let child = devices_res.child_value(0);
 
     let device_paths: Vec<String> = child
         .iter()
@@ -267,12 +269,17 @@ async fn list_wifi_networks_internal(
             Err(_) => continue,
         };
 
-        let Some(ap_array) = aps_val.child_value(0) else {
+        if aps_val.n_children() == 0 {
             continue;
-        };
+        }
+        let ap_array = aps_val.child_value(0);
 
         for ap_val in ap_array.iter() {
-            let ap_path = match ap_val.str().map(|s| s.to_string()).or_else(|| ap_val.get::<String>()) {
+            let ap_path = match ap_val
+                .str()
+                .map(|s| s.to_string())
+                .or_else(|| ap_val.get::<String>())
+            {
                 Some(p) => p,
                 None => continue,
             };
@@ -323,7 +330,10 @@ async fn list_wifi_networks_internal(
             let active = !active_ap_path.is_empty() && active_ap_path == ap_path;
 
             // Avoid duplicate SSIDs, keep the one with higher strength
-            if let Some(existing) = networks.iter_mut().find(|n: &&mut WifiNetwork| n.ssid == ssid) {
+            if let Some(existing) = networks
+                .iter_mut()
+                .find(|n: &&mut WifiNetwork| n.ssid == ssid)
+            {
                 if strength > existing.strength {
                     existing.strength = strength;
                     existing.secured = secured;
@@ -342,13 +352,25 @@ async fn list_wifi_networks_internal(
         }
     }
 
-    networks.sort_by(|a, b| b.strength.cmp(&a.strength));
+    networks.sort_by_key(|network| std::cmp::Reverse(network.strength));
     Ok(networks)
 }
 
 pub async fn list_wifi_networks() -> Result<Vec<WifiNetwork>, String> {
     let proxy = nm_proxy().await?;
     list_wifi_networks_internal(&proxy).await
+}
+
+pub async fn connect_wifi(ssid: &str) -> Result<(), String> {
+    if ssid.trim().is_empty() {
+        return Err("The Wi-Fi network name is empty".into());
+    }
+    system_command_wifi_connect(ssid).await
+}
+
+async fn system_command_wifi_connect(ssid: &str) -> Result<(), String> {
+    super::system::command(&["nmcli", "--wait", "20", "device", "wifi", "connect", ssid]).await?;
+    Ok(())
 }
 
 pub fn decode_ssid(bytes: &[u8]) -> String {
@@ -386,6 +408,19 @@ pub fn network_status_icon(status: &NetworkStatus) -> &'static str {
     "network-wired-symbolic"
 }
 
+pub fn network_status_message(status: &NetworkStatus) -> &'static str {
+    if !status.connected || status.connectivity == ConnectivityState::None {
+        return "Network: disconnected";
+    }
+    match status.connectivity {
+        ConnectivityState::Full => "Network: connected",
+        ConnectivityState::Portal => "Network: sign-in required",
+        ConnectivityState::Limited => "Network: limited connectivity",
+        ConnectivityState::Unknown => "Network: unavailable or transitioning",
+        ConnectivityState::None => "Network: disconnected",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -400,10 +435,22 @@ mod tests {
 
     #[test]
     fn signal_strength_maps_to_appropriate_symbolic_icon() {
-        assert_eq!(signal_strength_to_icon(90), "network-wireless-signal-excellent-symbolic");
-        assert_eq!(signal_strength_to_icon(60), "network-wireless-signal-good-symbolic");
-        assert_eq!(signal_strength_to_icon(35), "network-wireless-signal-ok-symbolic");
-        assert_eq!(signal_strength_to_icon(10), "network-wireless-signal-weak-symbolic");
+        assert_eq!(
+            signal_strength_to_icon(90),
+            "network-wireless-signal-excellent-symbolic"
+        );
+        assert_eq!(
+            signal_strength_to_icon(60),
+            "network-wireless-signal-good-symbolic"
+        );
+        assert_eq!(
+            signal_strength_to_icon(35),
+            "network-wireless-signal-ok-symbolic"
+        );
+        assert_eq!(
+            signal_strength_to_icon(10),
+            "network-wireless-signal-weak-symbolic"
+        );
     }
 
     #[test]
@@ -426,6 +473,25 @@ mod tests {
 
         status.primary_type = "wifi".into();
         status.signal_strength = 80;
-        assert_eq!(network_status_icon(&status), "network-wireless-signal-excellent-symbolic");
+        assert_eq!(
+            network_status_icon(&status),
+            "network-wireless-signal-excellent-symbolic"
+        );
+    }
+
+    #[test]
+    fn network_status_message_reflects_connectivity() {
+        let mut status = NetworkStatus {
+            connected: true,
+            connectivity: ConnectivityState::Full,
+            ..Default::default()
+        };
+        assert_eq!(network_status_message(&status), "Network: connected");
+
+        status.connectivity = ConnectivityState::Portal;
+        assert_eq!(network_status_message(&status), "Network: sign-in required");
+
+        status.connected = false;
+        assert_eq!(network_status_message(&status), "Network: disconnected");
     }
 }

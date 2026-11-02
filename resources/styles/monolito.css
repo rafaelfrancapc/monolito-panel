@@ -1,4 +1,4 @@
-/* Monolito Panel - Windows 11 Minimalist Aesthetic */
+/* Desktop panel — Windows 11 inspired visual system */
 @define-color monolito_accent #0078d4;
 
 /* Base Panel */
@@ -255,7 +255,6 @@
 .menu-item-button {
   padding: 6px 12px;
   border-radius: 6px;
-  text-align: left;
 }
 
 .menu-item-button:hover {
@@ -309,6 +308,28 @@
   opacity: 0.70;
 }
 
+.quick-tile-more {
+  min-width: 32px;
+  padding: 0 6px;
+  margin: 1px;
+  border-radius: 0 7px 7px 0;
+  background: transparent;
+  border-left: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: none;
+}
+
+.light .quick-tile-more {
+  border-left-color: rgba(0, 0, 0, 0.10);
+}
+
+.quick-tile-more:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.light .quick-tile-more:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
 /* Quick Details Box (Wi-Fi list, Bluetooth list) */
 .quick-details-box {
   background: rgba(0, 0, 0, 0.18);
@@ -323,7 +344,6 @@
 .network-list-item {
   padding: 6px 10px;
   border-radius: 6px;
-  text-align: left;
 }
 
 .network-list-item:hover {

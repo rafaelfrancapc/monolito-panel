@@ -16,7 +16,8 @@ pub struct AudioDevice {
 
 pub async fn get_master_volume() -> Result<AudioVolume, String> {
     let out = system::command(&["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"]).await?;
-    let (value, muted) = system::parse_volume(&out).ok_or_else(|| "Failed to parse sink volume".to_string())?;
+    let (value, muted) =
+        system::parse_volume(&out).ok_or_else(|| "Failed to parse sink volume".to_string())?;
     Ok(AudioVolume { value, muted })
 }
 
@@ -41,7 +42,8 @@ pub async fn toggle_master_mute() -> Result<(), String> {
 
 pub async fn get_input_volume() -> Result<AudioVolume, String> {
     let out = system::command(&["wpctl", "get-volume", "@DEFAULT_AUDIO_SOURCE@"]).await?;
-    let (value, muted) = system::parse_volume(&out).ok_or_else(|| "Failed to parse source volume".to_string())?;
+    let (value, muted) =
+        system::parse_volume(&out).ok_or_else(|| "Failed to parse source volume".to_string())?;
     Ok(AudioVolume { value, muted })
 }
 
@@ -81,14 +83,15 @@ pub fn parse_wpctl_sinks(output: &str) -> Vec<AudioDevice> {
 
     for line in output.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("Sinks:") || trimmed.contains("Audio/Sink") {
+        let section = trimmed.trim_start_matches(['│', '├', '└', '─', ' ']);
+        if section == "Sinks:" || trimmed.contains("Audio/Sink") {
             in_sinks = true;
             continue;
         }
 
         if in_sinks {
             // End of Sinks section when another heading begins
-            if trimmed.ends_with(':') && !trimmed.starts_with('*') {
+            if section.ends_with(':') && !section.starts_with('*') {
                 break;
             }
 
@@ -96,9 +99,7 @@ pub fn parse_wpctl_sinks(output: &str) -> Vec<AudioDevice> {
             // " │  *   48. Built-in Audio Analog Stereo        [vol: 0.65]"
             // or " │      49. HDMI / DisplayPort 1 Output         [vol: 1.00]"
             let is_default = line.contains('*');
-            let clean = line
-                .replace('│', " ")
-                .replace('*', " ");
+            let clean = line.replace(['│', '*'], " ");
 
             let parts: Vec<&str> = clean.split_whitespace().collect();
             if parts.is_empty() {
@@ -196,4 +197,3 @@ Audio
         assert!(!devices[2].is_default);
     }
 }
-

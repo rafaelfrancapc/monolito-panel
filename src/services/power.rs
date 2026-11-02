@@ -1,6 +1,6 @@
 //! UPower battery monitoring and display brightness controls.
 use super::system;
-use gtk::{gio, glib, prelude::*};
+use gtk::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BatteryState {
@@ -149,13 +149,30 @@ pub async fn get_brightness() -> Result<BrightnessInfo, String> {
 
 pub async fn set_brightness(percentage: u32) -> Result<(), String> {
     let clamped = percentage.min(100);
-    if system::command(&["brightnessctl", "set", &format!("{clamped}%")]).await.is_ok() {
+    if system::command(&["brightnessctl", "set", &format!("{clamped}%")])
+        .await
+        .is_ok()
+    {
         return Ok(());
     }
-    if system::command(&["xbacklight", "-set", &clamped.to_string()]).await.is_ok() {
+    if system::command(&["xbacklight", "-set", &clamped.to_string()])
+        .await
+        .is_ok()
+    {
         return Ok(());
     }
     Err("No supported brightness controller found".into())
+}
+
+pub async fn power_saver_enabled() -> Result<bool, String> {
+    let profile = system::command(&["powerprofilesctl", "get"]).await?;
+    Ok(profile.trim() == "power-saver")
+}
+
+pub async fn set_power_saver(enabled: bool) -> Result<(), String> {
+    let profile = if enabled { "power-saver" } else { "balanced" };
+    system::command(&["powerprofilesctl", "set", profile]).await?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -164,10 +181,22 @@ mod tests {
 
     #[test]
     fn maps_battery_icons_correctly() {
-        assert_eq!(battery_icon(99.0, &BatteryState::Discharging), "battery-level-100-charged-symbolic");
-        assert_eq!(battery_icon(50.0, &BatteryState::Discharging), "battery-level-50-symbolic");
-        assert_eq!(battery_icon(10.0, &BatteryState::Discharging), "battery-level-10-symbolic");
-        assert_eq!(battery_icon(50.0, &BatteryState::Charging), "battery-charging-symbolic");
+        assert_eq!(
+            battery_icon(99.0, &BatteryState::Discharging),
+            "battery-level-100-charged-symbolic"
+        );
+        assert_eq!(
+            battery_icon(50.0, &BatteryState::Discharging),
+            "battery-level-50-symbolic"
+        );
+        assert_eq!(
+            battery_icon(10.0, &BatteryState::Discharging),
+            "battery-level-10-symbolic"
+        );
+        assert_eq!(
+            battery_icon(50.0, &BatteryState::Charging),
+            "battery-charging-symbolic"
+        );
     }
 
     #[test]
@@ -177,4 +206,3 @@ mod tests {
         assert_eq!(format_duration(1800), "30m");
     }
 }
-

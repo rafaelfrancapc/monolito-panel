@@ -1,6 +1,4 @@
-use crate::services::{
-    audio, bluetooth, network, power, system,
-};
+use crate::services::{audio, bluetooth, network, power, system};
 use gtk::{glib, prelude::*};
 use std::{
     cell::{Cell, RefCell},
@@ -39,7 +37,16 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
     wifi_labels.set_hexpand(true);
     wifi_box.append(&wifi_labels);
     wifi_btn.set_child(Some(&wifi_box));
-    grid.attach(&wifi_btn, 0, 0, 1, 1);
+    let wifi_more = gtk::Button::from_icon_name("go-next-symbolic");
+    wifi_more.add_css_class("quick-tile-more");
+    wifi_more.set_halign(gtk::Align::End);
+    wifi_more.set_valign(gtk::Align::Fill);
+    wifi_more.set_sensitive(false);
+    wifi_more.set_tooltip_text(Some(&gettextrs::gettext("Show available networks")));
+    let wifi_overlay = gtk::Overlay::new();
+    wifi_overlay.set_child(Some(&wifi_btn));
+    wifi_overlay.add_overlay(&wifi_more);
+    grid.attach(&wifi_overlay, 0, 0, 1, 1);
 
     // 2. Bluetooth Tile
     let bt_btn = gtk::Button::new();
@@ -61,7 +68,16 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
     bt_labels.set_hexpand(true);
     bt_box.append(&bt_labels);
     bt_btn.set_child(Some(&bt_box));
-    grid.attach(&bt_btn, 1, 0, 1, 1);
+    let bt_more = gtk::Button::from_icon_name("go-next-symbolic");
+    bt_more.add_css_class("quick-tile-more");
+    bt_more.set_halign(gtk::Align::End);
+    bt_more.set_valign(gtk::Align::Fill);
+    bt_more.set_sensitive(false);
+    bt_more.set_tooltip_text(Some(&gettextrs::gettext("Show Bluetooth devices")));
+    let bt_overlay = gtk::Overlay::new();
+    bt_overlay.set_child(Some(&bt_btn));
+    bt_overlay.add_overlay(&bt_more);
+    grid.attach(&bt_overlay, 1, 0, 1, 1);
 
     // 3. Airplane Mode Tile
     let airplane_btn = gtk::Button::new();
@@ -201,7 +217,7 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
     footer.append(&battery_box);
 
     let settings = gtk::Button::from_icon_name("emblem-system-symbolic");
-    settings.set_tooltip_text(Some("Monolito Settings"));
+    settings.set_tooltip_text(Some(&gettextrs::gettext("System settings")));
     let parent_settings = parent.clone();
     settings.connect_clicked(move |_| system::open_settings(&parent_settings));
     footer.append(&settings);
@@ -236,14 +252,15 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
             let val = scale.value() / 100.0;
             let timer_ref = timer.clone();
             let p_win = parent_win.clone();
-            let src = glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
-                timer_ref.borrow_mut().take();
-                glib::MainContext::default().spawn_local(async move {
-                    if let Err(e) = audio::set_master_volume(val).await {
-                        system::show_error(&p_win, &e);
-                    }
+            let src =
+                glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+                    timer_ref.borrow_mut().take();
+                    glib::MainContext::default().spawn_local(async move {
+                        if let Err(e) = audio::set_master_volume(val).await {
+                            system::show_error(&p_win, &e);
+                        }
+                    });
                 });
-            });
             *timer.borrow_mut() = Some(src);
         });
     }
@@ -288,11 +305,41 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
         });
     }
 
+    // Microphone volume slider change (debounced)
+    let pending_mic_timer: Rc<RefCell<Option<glib::SourceId>>> = Rc::new(RefCell::new(None));
+    {
+        let guard = updating_mic.clone();
+        let timer = pending_mic_timer.clone();
+        let parent_win = parent.clone();
+        mic_scale.connect_value_changed(move |scale| {
+            if guard.get() || !scale.is_sensitive() {
+                return;
+            }
+            if let Some(source) = timer.borrow_mut().take() {
+                source.remove();
+            }
+            let value = scale.value() / 100.0;
+            let timer_ref = timer.clone();
+            let parent_win = parent_win.clone();
+            let source =
+                glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+                    timer_ref.borrow_mut().take();
+                    glib::MainContext::default().spawn_local(async move {
+                        if let Err(error) = audio::set_input_volume(value).await {
+                            system::show_error(&parent_win, &error);
+                        }
+                    });
+                });
+            *timer.borrow_mut() = Some(source);
+        });
+    }
+
     // Brightness scale change (debounced)
     let pending_bright_timer: Rc<RefCell<Option<glib::SourceId>>> = Rc::new(RefCell::new(None));
     {
         let guard = updating_brightness.clone();
         let timer = pending_bright_timer.clone();
+        let parent_win = parent.clone();
         bright_scale.connect_value_changed(move |scale| {
             if guard.get() || !scale.is_sensitive() {
                 return;
@@ -302,121 +349,202 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
             }
             let pct = scale.value().round() as u32;
             let timer_ref = timer.clone();
-            let src = glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
-                timer_ref.borrow_mut().take();
-                glib::MainContext::default().spawn_local(async move {
-                    let _ = power::set_brightness(pct).await;
+            let parent_win = parent_win.clone();
+            let src =
+                glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+                    timer_ref.borrow_mut().take();
+                    glib::MainContext::default().spawn_local(async move {
+                        if let Err(error) = power::set_brightness(pct).await {
+                            system::show_error(&parent_win, &error);
+                        }
+                    });
                 });
-            });
             *timer.borrow_mut() = Some(src);
         });
     }
 
-    // Wi-Fi Tile Click: Toggle Wi-Fi or show details
+    // Wi-Fi tile: main area toggles the radio; chevron opens network details.
     {
         let wifi_en = current_wifi_enabled.clone();
+        let parent_win = parent.clone();
+        let w_sub = wifi_sub.clone();
+        let w_tile = wifi_btn.clone();
+        let w_more = wifi_more.clone();
+
+        wifi_btn.connect_clicked(move |_| {
+            let desired = !wifi_en.get();
+            let w_en = wifi_en.clone();
+            let p_win = parent_win.clone();
+            let ws = w_sub.clone();
+            let wt = w_tile.clone();
+            let wm = w_more.clone();
+            wt.set_sensitive(false);
+            glib::MainContext::default().spawn_local(async move {
+                wt.set_sensitive(true);
+                match network::set_wifi_enabled(desired).await {
+                    Ok(()) => {
+                        w_en.set(desired);
+                        wm.set_sensitive(desired);
+                        if desired {
+                            wt.add_css_class("active");
+                            ws.set_text(&gettextrs::gettext("On"));
+                        } else {
+                            wt.remove_css_class("active");
+                            ws.set_text(&gettextrs::gettext("Off"));
+                        }
+                    }
+                    Err(error) => system::show_error(&p_win, &error),
+                }
+            });
+        });
+    }
+
+    {
         let parent_win = parent.clone();
         let d_exp = details_expander.clone();
         let d_title = details_title.clone();
         let d_list = details_list.clone();
-        let w_sub = wifi_sub.clone();
-        let w_tile = wifi_btn.clone();
+        wifi_more.connect_clicked(move |_| {
+            d_title.set_text("Wi-Fi");
+            while let Some(child) = d_list.first_child() {
+                d_list.remove(&child);
+            }
+            d_exp.set_visible(true);
 
-        wifi_btn.connect_clicked(move |_| {
-            let is_enabled = wifi_en.get();
-            if !is_enabled {
-                // Turn on
-                let w_en = wifi_en.clone();
-                let p_win = parent_win.clone();
-                let ws = w_sub.clone();
-                let wt = w_tile.clone();
-                glib::MainContext::default().spawn_local(async move {
-                    if let Err(e) = network::set_wifi_enabled(true).await {
-                        system::show_error(&p_win, &e);
-                    } else {
-                        w_en.set(true);
-                        wt.add_css_class("active");
-                        ws.set_text(&gettextrs::gettext("On"));
-                    }
-                });
-            } else {
-                // Show Wi-Fi list in details expander
-                d_title.set_text("Wi-Fi");
-                while let Some(c) = d_list.first_child() {
-                    d_list.remove(&c);
-                }
-                d_exp.set_visible(true);
-
-                let dl = d_list.clone();
-                let de = d_exp.clone();
-                glib::MainContext::default().spawn_local(async move {
-                    if let Ok(networks) = network::list_wifi_networks().await {
+            let dl = d_list.clone();
+            let de = d_exp.clone();
+            let p_win = parent_win.clone();
+            glib::MainContext::default().spawn_local(async move {
+                match network::list_wifi_networks().await {
+                    Ok(networks) => {
+                        if networks.is_empty() {
+                            let empty = gtk::Label::new(Some(&gettextrs::gettext(
+                                "No Wi-Fi networks found.",
+                            )));
+                            empty.add_css_class("muted");
+                            empty.set_margin_top(8);
+                            empty.set_margin_bottom(8);
+                            dl.append(&empty);
+                        }
                         for net in networks {
                             let item_btn = gtk::Button::new();
                             item_btn.add_css_class("network-list-item");
                             let ibox = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-                            let s_icon = gtk::Image::from_icon_name(network::signal_strength_to_icon(net.strength));
+                            let s_icon = gtk::Image::from_icon_name(
+                                network::signal_strength_to_icon(net.strength),
+                            );
                             ibox.append(&s_icon);
                             let s_label = gtk::Label::new(Some(&net.ssid));
                             s_label.set_xalign(0.0);
                             s_label.set_hexpand(true);
                             ibox.append(&s_label);
                             if net.secured {
-                                ibox.append(&gtk::Image::from_icon_name("network-wireless-encrypted-symbolic"));
+                                ibox.append(&gtk::Image::from_icon_name(
+                                    "network-wireless-encrypted-symbolic",
+                                ));
                             }
                             if net.active {
                                 ibox.append(&gtk::Image::from_icon_name("object-select-symbolic"));
                             }
                             item_btn.set_child(Some(&ibox));
+                            if net.active {
+                                item_btn.set_sensitive(false);
+                            } else {
+                                let ssid = net.ssid.clone();
+                                let dialog_parent = p_win.clone();
+                                let details = de.clone();
+                                item_btn.connect_clicked(move |button| {
+                                    button.set_sensitive(false);
+                                    let button = button.clone();
+                                    let ssid = ssid.clone();
+                                    let dialog_parent = dialog_parent.clone();
+                                    let details = details.clone();
+                                    glib::MainContext::default().spawn_local(async move {
+                                        match network::connect_wifi(&ssid).await {
+                                            Ok(()) => details.set_visible(false),
+                                            Err(error) => {
+                                                button.set_sensitive(true);
+                                                system::show_error(&dialog_parent, &error)
+                                            }
+                                        }
+                                    });
+                                });
+                            }
                             dl.append(&item_btn);
                         }
+                    }
+                    Err(error) => system::show_error(&p_win, &error),
+                }
+            });
+        });
+    }
+
+    // Bluetooth tile: main area toggles the adapter; chevron opens devices.
+    {
+        let bt_pow = current_bt_powered.clone();
+        let adapter_ref = current_bt_adapter.clone();
+        let parent_win = parent.clone();
+        let b_sub = bt_sub.clone();
+        let b_tile = bt_btn.clone();
+        let b_more = bt_more.clone();
+
+        bt_btn.connect_clicked(move |_| {
+            let adapter = adapter_ref.borrow().clone();
+            if let Some(ad) = adapter {
+                let desired = !bt_pow.get();
+                let bp = bt_pow.clone();
+                let p_win = parent_win.clone();
+                let bs = b_sub.clone();
+                let bt = b_tile.clone();
+                let bm = b_more.clone();
+                bt.set_sensitive(false);
+                glib::MainContext::default().spawn_local(async move {
+                    bt.set_sensitive(true);
+                    match bluetooth::set_powered(&ad, desired).await {
+                        Ok(()) => {
+                            bp.set(desired);
+                            bm.set_sensitive(desired);
+                            if desired {
+                                bt.add_css_class("active");
+                                bs.set_text(&gettextrs::gettext("On"));
+                            } else {
+                                bt.remove_css_class("active");
+                                bs.set_text(&gettextrs::gettext("Off"));
+                            }
+                        }
+                        Err(error) => system::show_error(&p_win, &error),
                     }
                 });
             }
         });
     }
 
-    // Bluetooth Tile Click: Toggle Bluetooth or show devices
     {
-        let bt_pow = current_bt_powered.clone();
-        let adapter_ref = current_bt_adapter.clone();
         let parent_win = parent.clone();
         let d_exp = details_expander.clone();
         let d_title = details_title.clone();
         let d_list = details_list.clone();
-        let b_sub = bt_sub.clone();
-        let b_tile = bt_btn.clone();
+        bt_more.connect_clicked(move |_| {
+            d_title.set_text("Bluetooth");
+            while let Some(child) = d_list.first_child() {
+                d_list.remove(&child);
+            }
+            d_exp.set_visible(true);
 
-        bt_btn.connect_clicked(move |_| {
-            let is_powered = bt_pow.get();
-            let adapter = adapter_ref.borrow().clone();
-            if let Some(ad) = adapter {
-                if !is_powered {
-                    let bp = bt_pow.clone();
-                    let p_win = parent_win.clone();
-                    let bs = b_sub.clone();
-                    let bt = b_tile.clone();
-                    glib::MainContext::default().spawn_local(async move {
-                        if let Err(e) = bluetooth::set_powered(&ad, true).await {
-                            system::show_error(&p_win, &e);
+            let dl = d_list.clone();
+            let p_win = parent_win.clone();
+            glib::MainContext::default().spawn_local(async move {
+                match bluetooth::get_status().await {
+                    Ok(status) => {
+                        if status.devices.is_empty() {
+                            let empty = gtk::Label::new(Some(&gettextrs::gettext(
+                                "No paired devices found.",
+                            )));
+                            empty.add_css_class("muted");
+                            empty.set_margin_top(8);
+                            empty.set_margin_bottom(8);
+                            dl.append(&empty);
                         } else {
-                            bp.set(true);
-                            bt.add_css_class("active");
-                            bs.set_text(&gettextrs::gettext("On"));
-                        }
-                    });
-                } else {
-                    // Show Bluetooth devices list in details expander
-                    d_title.set_text("Bluetooth");
-                    while let Some(c) = d_list.first_child() {
-                        d_list.remove(&c);
-                    }
-                    d_exp.set_visible(true);
-
-                    let dl = d_list.clone();
-                    let p_win = parent_win.clone();
-                    glib::MainContext::default().spawn_local(async move {
-                        if let Ok(status) = bluetooth::get_status().await {
                             for dev in status.devices {
                                 let item_btn = gtk::Button::new();
                                 item_btn.add_css_class("network-list-item");
@@ -428,11 +556,12 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
                                 d_label.set_hexpand(true);
                                 ibox.append(&d_label);
 
-                                let status_lbl = gtk::Label::new(Some(if dev.connected {
-                                    &gettextrs::gettext("Connected")
+                                let status_text = if dev.connected {
+                                    gettextrs::gettext("Connected")
                                 } else {
-                                    &gettextrs::gettext("Paired")
-                                }));
+                                    gettextrs::gettext("Paired")
+                                };
+                                let status_lbl = gtk::Label::new(Some(&status_text));
                                 status_lbl.add_css_class("muted");
                                 ibox.append(&status_lbl);
 
@@ -442,18 +571,23 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
                                 let is_conn = dev.connected;
                                 let pw = p_win.clone();
                                 item_btn.connect_clicked(move |_| {
-                                    let pw_inner = pw.clone();
                                     let dp = dev_path.clone();
+                                    let dialog_parent = pw.clone();
                                     glib::MainContext::default().spawn_local(async move {
-                                        let _ = bluetooth::toggle_connection(&dp, !is_conn).await;
+                                        if let Err(error) =
+                                            bluetooth::toggle_connection(&dp, !is_conn).await
+                                        {
+                                            system::show_error(&dialog_parent, &error);
+                                        }
                                     });
                                 });
                                 dl.append(&item_btn);
                             }
                         }
-                    });
+                    }
+                    Err(error) => system::show_error(&p_win, &error),
                 }
-            }
+            });
         });
     }
 
@@ -462,12 +596,20 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
         let air_cell = current_airplane_mode.clone();
         let air_sub_lbl = airplane_sub.clone();
         let air_btn_widget = airplane_btn.clone();
+        let wifi_enabled = current_wifi_enabled.clone();
+        let wifi_button = wifi_btn.clone();
+        let wifi_details = wifi_more.clone();
+        let wifi_subtitle = wifi_sub.clone();
         let parent_win = parent.clone();
         airplane_btn.connect_clicked(move |_| {
             let desired = !air_cell.get();
             let ac = air_cell.clone();
             let asl = air_sub_lbl.clone();
             let abw = air_btn_widget.clone();
+            let we = wifi_enabled.clone();
+            let wb = wifi_button.clone();
+            let wd = wifi_details.clone();
+            let ws = wifi_subtitle.clone();
             let p_win = parent_win.clone();
             glib::MainContext::default().spawn_local(async move {
                 if let Err(e) = network::set_airplane_mode(desired).await {
@@ -477,9 +619,17 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
                     if desired {
                         abw.add_css_class("active");
                         asl.set_text(&gettextrs::gettext("On"));
+                        we.set(false);
+                        wb.remove_css_class("active");
+                        wd.set_sensitive(false);
+                        ws.set_text(&gettextrs::gettext("Off"));
                     } else {
                         abw.remove_css_class("active");
                         asl.set_text(&gettextrs::gettext("Off"));
+                        we.set(true);
+                        wb.add_css_class("active");
+                        wd.set_sensitive(true);
+                        ws.set_text(&gettextrs::gettext("On"));
                     }
                 }
             });
@@ -491,16 +641,30 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
         let sav_cell = saver_enabled.clone();
         let sav_sub_lbl = saver_sub.clone();
         let sav_btn_widget = saver_btn.clone();
+        let parent_win = parent.clone();
         saver_btn.connect_clicked(move |_| {
             let desired = !sav_cell.get();
-            sav_cell.set(desired);
-            if desired {
-                sav_btn_widget.add_css_class("active");
-                sav_sub_lbl.set_text(&gettextrs::gettext("On"));
-            } else {
-                sav_btn_widget.remove_css_class("active");
-                sav_sub_lbl.set_text(&gettextrs::gettext("Off"));
-            }
+            let enabled = sav_cell.clone();
+            let subtitle = sav_sub_lbl.clone();
+            let button = sav_btn_widget.clone();
+            let dialog_parent = parent_win.clone();
+            button.set_sensitive(false);
+            glib::MainContext::default().spawn_local(async move {
+                button.set_sensitive(true);
+                match power::set_power_saver(desired).await {
+                    Ok(()) => {
+                        enabled.set(desired);
+                        if desired {
+                            button.add_css_class("active");
+                            subtitle.set_text(&gettextrs::gettext("On"));
+                        } else {
+                            button.remove_css_class("active");
+                            subtitle.set_text(&gettextrs::gettext("Off"));
+                        }
+                    }
+                    Err(error) => system::show_error(&dialog_parent, &error),
+                }
+            });
         });
     }
 
@@ -509,6 +673,7 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
         let d_exp = details_expander.clone();
         let d_title = details_title.clone();
         let d_list = details_list.clone();
+        let parent_win = parent.clone();
         sinks_menu_btn.connect_clicked(move |_| {
             d_title.set_text(&gettextrs::gettext("Audio output"));
             while let Some(c) = d_list.first_child() {
@@ -518,33 +683,41 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
 
             let dl = d_list.clone();
             let de = d_exp.clone();
+            let p_win = parent_win.clone();
             glib::MainContext::default().spawn_local(async move {
-                if let Ok(devices) = audio::list_output_devices().await {
-                    for dev in devices {
-                        let item_btn = gtk::Button::new();
-                        item_btn.add_css_class("network-list-item");
-                        let ibox = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-                        ibox.append(&gtk::Image::from_icon_name("audio-speakers-symbolic"));
-                        let d_label = gtk::Label::new(Some(&dev.description));
-                        d_label.set_xalign(0.0);
-                        d_label.set_hexpand(true);
-                        ibox.append(&d_label);
-                        if dev.is_default {
-                            ibox.append(&gtk::Image::from_icon_name("object-select-symbolic"));
-                        }
-                        item_btn.set_child(Some(&ibox));
+                match audio::list_output_devices().await {
+                    Ok(devices) => {
+                        for dev in devices {
+                            let item_btn = gtk::Button::new();
+                            item_btn.add_css_class("network-list-item");
+                            let ibox = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+                            ibox.append(&gtk::Image::from_icon_name("audio-speakers-symbolic"));
+                            let d_label = gtk::Label::new(Some(&dev.description));
+                            d_label.set_xalign(0.0);
+                            d_label.set_hexpand(true);
+                            ibox.append(&d_label);
+                            if dev.is_default {
+                                ibox.append(&gtk::Image::from_icon_name("object-select-symbolic"));
+                            }
+                            item_btn.set_child(Some(&ibox));
 
-                        let dev_id = dev.id;
-                        let de_inner = de.clone();
-                        item_btn.connect_clicked(move |_| {
-                            let de_close = de_inner.clone();
-                            glib::MainContext::default().spawn_local(async move {
-                                let _ = audio::set_default_output_device(dev_id).await;
-                                de_close.set_visible(false);
+                            let dev_id = dev.id;
+                            let de_inner = de.clone();
+                            let dialog_parent = p_win.clone();
+                            item_btn.connect_clicked(move |_| {
+                                let de_close = de_inner.clone();
+                                let dialog_parent = dialog_parent.clone();
+                                glib::MainContext::default().spawn_local(async move {
+                                    match audio::set_default_output_device(dev_id).await {
+                                        Ok(()) => de_close.set_visible(false),
+                                        Err(error) => system::show_error(&dialog_parent, &error),
+                                    }
+                                });
                             });
-                        });
-                        dl.append(&item_btn);
+                            dl.append(&item_btn);
+                        }
                     }
+                    Err(error) => system::show_error(&p_win, &error),
                 }
             });
         });
@@ -553,21 +726,61 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
     // Refresh function triggered on popup show
     let refresh_all: Rc<dyn Fn()> = {
         let (
-            wifi_btn, wifi_icon, wifi_sub, wifi_enabled_cell,
-            bt_btn, bt_sub, bt_adapter_ref, bt_pow_cell,
-            airplane_btn, airplane_sub, air_cell,
-            volume_scale, mute_btn, guard_audio,
-            mic_scale, mic_btn, guard_mic,
-            bright_scale, guard_bright,
-            battery_box, battery_icon, battery_label,
+            wifi_btn,
+            wifi_more,
+            wifi_icon,
+            wifi_sub,
+            wifi_enabled_cell,
+            bt_btn,
+            bt_more,
+            bt_sub,
+            bt_adapter_ref,
+            bt_pow_cell,
+            airplane_btn,
+            airplane_sub,
+            air_cell,
+            volume_scale,
+            mute_btn,
+            guard_audio,
+            mic_scale,
+            mic_btn,
+            guard_mic,
+            bright_scale,
+            guard_bright,
+            battery_box,
+            battery_icon,
+            battery_label,
+            saver_btn,
+            saver_sub,
+            saver_enabled,
         ) = (
-            wifi_btn.clone(), wifi_icon.clone(), wifi_sub.clone(), current_wifi_enabled.clone(),
-            bt_btn.clone(), bt_sub.clone(), current_bt_adapter.clone(), current_bt_powered.clone(),
-            airplane_btn.clone(), airplane_sub.clone(), current_airplane_mode.clone(),
-            volume_scale.clone(), mute_btn.clone(), updating_audio.clone(),
-            mic_scale.clone(), mic_btn.clone(), updating_mic.clone(),
-            bright_scale.clone(), updating_brightness.clone(),
-            battery_box.clone(), battery_icon.clone(), battery_label.clone(),
+            wifi_btn.clone(),
+            wifi_more.clone(),
+            wifi_icon.clone(),
+            wifi_sub.clone(),
+            current_wifi_enabled.clone(),
+            bt_btn.clone(),
+            bt_more.clone(),
+            bt_sub.clone(),
+            current_bt_adapter.clone(),
+            current_bt_powered.clone(),
+            airplane_btn.clone(),
+            airplane_sub.clone(),
+            current_airplane_mode.clone(),
+            volume_scale.clone(),
+            mute_btn.clone(),
+            updating_audio.clone(),
+            mic_scale.clone(),
+            mic_btn.clone(),
+            updating_mic.clone(),
+            bright_scale.clone(),
+            updating_brightness.clone(),
+            battery_box.clone(),
+            battery_icon.clone(),
+            battery_label.clone(),
+            saver_btn.clone(),
+            saver_sub.clone(),
+            saver_enabled.clone(),
         );
 
         Rc::new(move || {
@@ -617,9 +830,15 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
             });
 
             // 4. NetworkManager
-            let (wb, wi, ws, we_cell, ab, as_lbl, a_cell) = (
-                wifi_btn.clone(), wifi_icon.clone(), wifi_sub.clone(), wifi_enabled_cell.clone(),
-                airplane_btn.clone(), airplane_sub.clone(), air_cell.clone(),
+            let (wb, wm, wi, ws, we_cell, ab, as_lbl, a_cell) = (
+                wifi_btn.clone(),
+                wifi_more.clone(),
+                wifi_icon.clone(),
+                wifi_sub.clone(),
+                wifi_enabled_cell.clone(),
+                airplane_btn.clone(),
+                airplane_sub.clone(),
+                air_cell.clone(),
             );
             glib::MainContext::default().spawn_local(async move {
                 if let Ok(status) = network::get_status().await {
@@ -636,17 +855,21 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
 
                     if status.wifi_enabled {
                         wb.add_css_class("active");
+                        wm.set_sensitive(true);
                         if let Some(ssid) = status.active_ssid {
                             ws.set_text(&ssid);
-                            wi.set_icon_name(network::signal_strength_to_icon(status.signal_strength));
+                            wi.set_icon_name(Some(network::signal_strength_to_icon(
+                                status.signal_strength,
+                            )));
                         } else {
                             ws.set_text(&gettextrs::gettext("Disconnected"));
-                            wi.set_icon_name("network-wireless-symbolic");
+                            wi.set_icon_name(Some("network-wireless-symbolic"));
                         }
                     } else {
                         wb.remove_css_class("active");
+                        wm.set_sensitive(false);
                         ws.set_text(&gettextrs::gettext("Off"));
-                        wi.set_icon_name("network-wireless-offline-symbolic");
+                        wi.set_icon_name(Some("network-wireless-offline-symbolic"));
                     }
                 } else {
                     ws.set_text(&gettextrs::gettext("Unavailable"));
@@ -654,8 +877,12 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
             });
 
             // 5. Bluetooth
-            let (bb, bs, ba_ref, bp_cell) = (
-                bt_btn.clone(), bt_sub.clone(), bt_adapter_ref.clone(), bt_pow_cell.clone(),
+            let (bb, bm, bs, ba_ref, bp_cell) = (
+                bt_btn.clone(),
+                bt_more.clone(),
+                bt_sub.clone(),
+                bt_adapter_ref.clone(),
+                bt_pow_cell.clone(),
             );
             glib::MainContext::default().spawn_local(async move {
                 if let Ok(status) = bluetooth::get_status().await {
@@ -665,7 +892,10 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
                     if !status.available {
                         bs.set_text(&gettextrs::gettext("Unavailable"));
                         bb.set_sensitive(false);
+                        bm.set_sensitive(false);
                     } else if status.powered {
+                        bb.set_sensitive(true);
+                        bm.set_sensitive(true);
                         bb.add_css_class("active");
                         if let Some(connected) = status.devices.iter().find(|d| d.connected) {
                             bs.set_text(&connected.name);
@@ -673,6 +903,8 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
                             bs.set_text(&gettextrs::gettext("On"));
                         }
                     } else {
+                        bb.set_sensitive(true);
+                        bm.set_sensitive(false);
                         bb.remove_css_class("active");
                         bs.set_text(&gettextrs::gettext("Off"));
                     }
@@ -680,20 +912,52 @@ pub fn build(parent: &gtk::Window) -> gtk::Popover {
             });
 
             // 6. Battery
-            let (bbox, bicon, blabel) = (battery_box.clone(), battery_icon.clone(), battery_label.clone());
+            let (bbox, bicon, blabel) = (
+                battery_box.clone(),
+                battery_icon.clone(),
+                battery_label.clone(),
+            );
             glib::MainContext::default().spawn_local(async move {
                 if let Ok(Some(bat)) = power::get_battery().await {
                     bbox.set_visible(true);
-                    bicon.set_icon_name(power::battery_icon(bat.percentage, &bat.state));
+                    bicon.set_icon_name(Some(power::battery_icon(bat.percentage, &bat.state)));
                     let mut text = format!("{:.0}%", bat.percentage);
                     if bat.state.is_charging() {
                         text.push_str(&format!(" · {}", gettextrs::gettext("Charging")));
                     } else if let Some(secs) = bat.seconds_remaining {
-                        text.push_str(&format!(" · {} {}", power::format_duration(secs), gettextrs::gettext("remaining")));
+                        text.push_str(&format!(
+                            " · {} {}",
+                            power::format_duration(secs),
+                            gettextrs::gettext("remaining")
+                        ));
                     }
                     blabel.set_text(&text);
                 } else {
                     bbox.set_visible(false);
+                }
+            });
+
+            // 7. Power profile
+            let (button, subtitle, enabled) =
+                (saver_btn.clone(), saver_sub.clone(), saver_enabled.clone());
+            glib::MainContext::default().spawn_local(async move {
+                match power::power_saver_enabled().await {
+                    Ok(active) => {
+                        enabled.set(active);
+                        button.set_sensitive(true);
+                        if active {
+                            button.add_css_class("active");
+                            subtitle.set_text(&gettextrs::gettext("On"));
+                        } else {
+                            button.remove_css_class("active");
+                            subtitle.set_text(&gettextrs::gettext("Off"));
+                        }
+                    }
+                    Err(_) => {
+                        button.remove_css_class("active");
+                        button.set_sensitive(false);
+                        subtitle.set_text(&gettextrs::gettext("Unavailable"));
+                    }
                 }
             });
         })

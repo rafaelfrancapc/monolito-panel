@@ -9,7 +9,7 @@ fi
 "${privilege[@]}" apt-get "${apt_options[@]}" update
 "${privilege[@]}" apt-get "${apt_options[@]}" install -y --no-install-recommends \
   build-essential pkg-config curl ca-certificates libgtk-4-dev gettext \
-  adwaita-icon-theme librsvg2-common fonts-inter fonts-montserrat
+  adwaita-icon-theme librsvg2-common fonts-inter
 if ! command -v rustup >/dev/null && [[ ! -x ${CARGO_HOME:-$HOME/.cargo}/bin/rustup ]]; then
   installer=$(mktemp)
   trap 'rm -f "$installer"' EXIT

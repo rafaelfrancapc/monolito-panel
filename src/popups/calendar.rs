@@ -19,9 +19,6 @@ pub fn build() -> gtk::Popover {
     notif_title.set_hexpand(true);
     notif_header.append(&notif_title);
 
-    let clear_btn = gtk::Button::with_label(&gettextrs::gettext("Clear all"));
-    clear_btn.add_css_class("subtle-link-button");
-    notif_header.append(&clear_btn);
     content.append(&notif_header);
 
     let empty_notif_box = gtk::Box::new(gtk::Orientation::Vertical, 6);
