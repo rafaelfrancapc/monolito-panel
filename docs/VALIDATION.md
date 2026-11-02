@@ -17,7 +17,7 @@ O alvo de produção é Linux Mint 22.3 em sessão XFCE ou Cinnamon X11.
   em `msgfmt --check` e são incluídos no pacote.
 - `scripts/test-session.sh`: passou com substituição e restauração simuladas dos
   painéis nativos XFCE e Cinnamon, sem alterar a sessão do host.
-- `scripts/build-deb.sh`: gera `dist/monolito-panel_0.1.2_amd64.deb` com binário,
+- `scripts/build-deb.sh`: gera `dist/monolito-panel_0.1.3_amd64.deb` com binário,
   tradução, serviço do usuário e autostart XDG. O conteúdo e o controle foram
   inspecionados com `dpkg-deb`.
 

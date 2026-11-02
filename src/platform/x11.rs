@@ -1,6 +1,11 @@
 use super::*;
 use anyhow::{Context, Result};
-use std::{collections::HashSet, sync::mpsc, thread, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::mpsc,
+    thread,
+    time::Duration,
+};
 use x11rb::{
     connection::Connection,
     protocol::{
@@ -50,6 +55,7 @@ struct Worker {
     reserve: bool,
     monitor: Option<usize>,
     watched: HashSet<u32>,
+    icons: HashMap<u32, Option<WindowIcon>>,
 }
 impl Worker {
     fn run(
@@ -109,6 +115,7 @@ impl Worker {
             reserve,
             monitor,
             watched: HashSet::new(),
+            icons: HashMap::new(),
         };
         events.send(DesktopEvent::Ready(worker.geometry()?))?;
         worker.publish_windows(events)?;
@@ -128,7 +135,35 @@ impl Worker {
             let mut geometry_changed = false;
             while let Some(event) = worker.conn.poll_for_event()? {
                 match event {
-                    Event::PropertyNotify(_) | Event::DestroyNotify(_) => windows_changed = true,
+                    Event::PropertyNotify(e) => {
+                        let root_property = e.window == worker.root
+                            && [
+                                worker.atoms._NET_CLIENT_LIST,
+                                worker.atoms._NET_ACTIVE_WINDOW,
+                                worker.atoms._NET_CURRENT_DESKTOP,
+                            ]
+                            .contains(&e.atom);
+                        let window_property = worker.watched.contains(&e.window)
+                            && [
+                                worker.atoms._NET_WM_NAME,
+                                worker.atoms.WM_NAME,
+                                worker.atoms.WM_CLASS,
+                                worker.atoms._NET_WM_STATE,
+                                worker.atoms._NET_WM_WINDOW_TYPE,
+                                worker.atoms._NET_WM_DESKTOP,
+                                worker.atoms._NET_WM_ICON,
+                            ]
+                            .contains(&e.atom);
+                        if e.atom == worker.atoms._NET_WM_ICON {
+                            worker.icons.remove(&e.window);
+                        }
+                        windows_changed |= root_property || window_property;
+                    }
+                    Event::DestroyNotify(e) => {
+                        worker.icons.remove(&e.window);
+                        worker.watched.remove(&e.window);
+                        windows_changed = true;
+                    }
                     Event::RandrScreenChangeNotify(_) | Event::RandrNotify(_) => {
                         geometry_changed = true
                     }
@@ -372,12 +407,10 @@ impl Worker {
                 .or_else(|| parts.first())
                 .map(|p| String::from_utf8_lossy(p).into_owned())
                 .unwrap_or_default();
-            windows.push(WindowInfo {
-                id,
-                title: String::from_utf8_lossy(&title).into_owned(),
-                class,
-                active: active == Some(id),
-                icon: self
+            let icon = if let Some(icon) = self.icons.get(&id) {
+                icon.clone()
+            } else {
+                let icon = self
                     .conn
                     .get_property(
                         false,
@@ -393,10 +426,20 @@ impl Worker {
                         reply
                             .value32()
                             .and_then(|values| WindowIcon::parse(&values.collect::<Vec<_>>()))
-                    }),
+                    });
+                self.icons.insert(id, icon.clone());
+                icon
+            };
+            windows.push(WindowInfo {
+                id,
+                title: String::from_utf8_lossy(&title).into_owned(),
+                class,
+                active: active == Some(id),
+                icon,
             });
         }
         self.watched.retain(|id| clients.contains(id));
+        self.icons.retain(|id, _| clients.contains(id));
         self.conn.flush()?;
         events.send(DesktopEvent::Windows(windows))?;
         Ok(())

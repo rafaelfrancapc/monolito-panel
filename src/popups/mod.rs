@@ -25,13 +25,10 @@ pub fn popover(child: &impl IsA<gtk::Widget>) -> gtk::Popover {
         .build();
     popover.add_css_class("monolito-popup");
     popover.set_offset(0, 8);
-    popover.connect_show(move |popup| {
-        if let Some(surface) = popup.native().and_then(|native| native.surface()) {
-            if let Some(monitor) = popup.display().monitor_at_surface(&surface) {
-                scroll.set_max_content_height((monitor.geometry().height() - 128).max(200));
-            }
-        }
-    });
+    // Keep popups inside a 768 px desktop without retaining a GdkMonitor. A
+    // monitor object can be invalidated between hotplug notification and this
+    // callback, which used to trigger GDK_IS_MONITOR assertions.
+    scroll.set_max_content_height(620);
     // SearchEntry consumes Escape; capture it before the focused child.
     let keys = gtk::EventControllerKey::new();
     keys.set_propagation_phase(gtk::PropagationPhase::Capture);

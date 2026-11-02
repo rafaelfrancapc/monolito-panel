@@ -24,9 +24,20 @@ else
   printf 'cinnamon %s\n' "$4" >> "$MOCK_LOG"
 fi
 MOCK
+cat > "$test_dir/bin/systemctl" <<'MOCK'
+#!/usr/bin/env bash
+printf 'systemctl %s\n' "$*" >> "$MOCK_LOG"
+MOCK
+cat > "$test_dir/bin/dbus-update-activation-environment" <<'MOCK'
+#!/usr/bin/env bash
+printf 'dbus %s\n' "$*" >> "$MOCK_LOG"
+MOCK
 chmod +x "$test_dir/bin/"*
 export PATH="$test_dir/bin:$PATH" DISPLAY=:99 XDG_SESSION_TYPE=x11
 export MONOLITO_PANEL_BIN=/bin/true
+XDG_CURRENT_DESKTOP=XFCE bash packaging/session start
+test "$(cat "$MOCK_LOG")" = $'dbus --systemd DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE DBUS_SESSION_BUS_ADDRESS\nsystemctl --user import-environment DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE DBUS_SESSION_BUS_ADDRESS\nsystemctl --user daemon-reload\nsystemctl --user reset-failed monolito-panel.service\nsystemctl --user restart monolito-panel.service'
+: > "$MOCK_LOG"
 XDG_CURRENT_DESKTOP=XFCE bash packaging/session run
 test "$(cat "$MOCK_LOG")" = $'xfce --quit\nxfce --restart'
 : > "$MOCK_LOG"

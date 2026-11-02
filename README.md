@@ -43,8 +43,8 @@ sudo apt-get install --no-install-recommends xvfb xauth xfwm4 dbus-x11 \
 
 ```bash
 ./scripts/build-deb.sh
-sudo apt install ./dist/monolito-panel_0.1.2_$(dpkg --print-architecture).deb
-systemctl --user restart monolito-panel.service
+sudo apt install ./dist/monolito-panel_0.1.3_$(dpkg --print-architecture).deb
+/usr/libexec/monolito-panel/session start
 ```
 
 O script compila com `--release --locked` e inclui binário, traduções, unidade

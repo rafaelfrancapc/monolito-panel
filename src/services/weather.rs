@@ -69,7 +69,7 @@ pub async fn current(location: Option<&str>) -> Result<Weather, String> {
         "--max-time",
         "12",
         "--user-agent",
-        "monolito-panel/0.1.2",
+        "monolito-panel/0.1.3",
         &url,
     ])
     .await?;

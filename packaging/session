@@ -5,8 +5,13 @@ set -euo pipefail
 case "${1:-}" in
   start)
     [[ ${XDG_SESSION_TYPE:-x11} == x11 && -n ${DISPLAY:-} ]] || exit 0
+    if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+      dbus-update-activation-environment --systemd DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE DBUS_SESSION_BUS_ADDRESS
+    fi
     systemctl --user import-environment DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE DBUS_SESSION_BUS_ADDRESS
-    exec systemctl --user start monolito-panel.service
+    systemctl --user daemon-reload
+    systemctl --user reset-failed monolito-panel.service || true
+    exec systemctl --user restart monolito-panel.service
     ;;
   run)
     [[ -n ${DISPLAY:-} ]] || { echo 'X11 DISPLAY is required' >&2; exit 1; }

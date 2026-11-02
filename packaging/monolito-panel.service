@@ -2,6 +2,7 @@
 Description=Desktop Panel for XFCE or Cinnamon X11
 After=graphical-session.target
 PartOf=graphical-session.target
+ConditionEnvironment=DISPLAY
 StartLimitIntervalSec=30
 StartLimitBurst=3
 
@@ -11,6 +12,7 @@ Environment=GDK_BACKEND=x11
 ExecStart=/usr/libexec/monolito-panel/session run
 Restart=on-failure
 RestartSec=3
+TimeoutStopSec=10
 
 [Install]
 WantedBy=graphical-session.target
