@@ -7,10 +7,9 @@ contraste do Fluent Design; a interface usa widgets GTK nativos.
 
 ## Plataformas
 
-O alvo é **Linux Mint 22.3**, baseado no Ubuntu 24.04. A compilação funciona no
-Ubuntu Server 24.04 e no Ubuntu 24.04 sob WSL. A execução como painel exige uma
-sessão gráfica X11 com um gerenciador de janelas EWMH. O WSL é adequado para
-compilar e testar com Xvfb; valide a sessão final numa VM ou máquina Mint.
+O alvo é **Linux Mint 22.3**, baseado no Ubuntu 24.04. A compilação foi testada no
+Ubuntu Server 24.04, no Ubuntu 24.04 e Ubuntu 26.04. A execução como painel exige uma
+sessão gráfica X11 com um gerenciador de janelas EWMH.
 
 O [Win11 Icon Theme](https://github.com/yeyushengfan258/win11-icon-theme) deve
 estar instalado com o nome padrão `Win11`. O painel seleciona esse tema de ícones
@@ -21,7 +20,7 @@ usado para outros programas da sessão; o painel aplica seu próprio CSS para
 manter dimensões e contraste estáveis. Nenhuma imagem da Microsoft ou desses
 temas é distribuída neste repositório.
 
-## Compilar no Ubuntu 24.04 ou Mint 22.3
+## Compilar no Ubuntu, Debian ou Mint
 
 ```bash
 ./scripts/setup-ubuntu.sh
@@ -109,26 +108,7 @@ icon_theme = "Win11"
 
 O painel carrega essas opções ao iniciar. O botão de configurações prioriza
 `org.monolito.Settings.desktop` quando instalado e usa os gerenciadores XFCE ou
-Cinnamon como alternativas. Os tokens de aparência estão em `monolito-ui`;
-Settings e [GTK Greeter](https://github.com/rafaelfrancapc/monolito-gtk-greeter)
-continuam processos separados. O Greeter usa GTK3/LightDM e exige configuração
-de tema na tela de login pelo administrador; o painel não altera LightDM.
-
-`pinned` controla apenas a barra; `start_pinned` controla apenas o Iniciar. Fixar
-um aplicativo em um local remove sua fixação no outro. O clique direito no
-Iniciar ou no ícone da barra oferece fixação e atalho na área de trabalho.
-A lista de apps instalados atualiza
-automaticamente pelo monitor de aplicativos do GIO. A tecla Windows abre e fecha
-o Iniciar numa sessão X11 com XInput2. O nome de perfil usa o nome real do sistema,
-e a foto vem de `~/.face`, `~/.face.icon` ou AccountsService. Clicar no perfil
-oferece logout pela sessão XFCE ou Cinnamon.
-
-O clima aparece no canto esquerdo e atualiza ao iniciar e a cada 30 minutos.
-Sem `weather_location`, o serviço wttr.in estima a localização pelo endereço IP;
-defina uma cidade para evitar essa estimativa. O clique direito oferece **Ocultar
-clima** e grava `weather_enabled = false`. Para reativar, altere o valor para
-`true` no `panel.toml` e reinicie o serviço. Se a rede ou o provedor estiverem
-indisponíveis, o painel mantém o último resultado e informa o erro no tooltip.
+Cinnamon como alternativas.
 
 A lupa ao lado do Iniciar abre o App Finder no XFCE. No Cinnamon, abre diretamente
 a pesquisa do Iniciar do painel, que substitui o menu do painel nativo.
